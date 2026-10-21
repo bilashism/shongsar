@@ -1,0 +1,304 @@
+<!-- frontend/Scripts.html -->
+<script>
+  var state = { accounts: [], transactions: [], budgets: [], categories: [], debts: [], investments: [], spreadsheetUrl: '#' };
+  var selectedMonth = new Date().toISOString().substring(0, 7);
+
+  function formatBDT(amount) {
+    var val = parseFloat(amount) || 0;
+    var abs = Math.abs(val);
+    var parts = Math.round(abs).toString();
+    if (parts.length > 3) {
+      var last3 = parts.substring(parts.length - 3);
+      var rest = parts.substring(0, parts.length - 3);
+      parts = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + last3;
+    }
+    return (val < 0 ? "-৳ " : "৳ ") + parts;
+  }
+
+  function onMonthChange(val) {
+    if (val) {
+      selectedMonth = val;
+      renderUI();
+    }
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.add('hidden'); });
+    document.querySelectorAll('.tab-link').forEach(function(el) {
+      el.classList.remove('text-emerald-400', 'font-bold', 'border-b-2', 'border-emerald-500');
+      el.classList.add('hover:text-slate-200');
+    });
+    var target = document.getElementById('tab-' + tabId);
+    if (target) target.classList.remove('hidden');
+    var navBtn = document.getElementById('nav-' + tabId);
+    if (navBtn) {
+      navBtn.classList.add('text-emerald-400', 'font-bold', 'border-b-2', 'border-emerald-500');
+    }
+  }
+
+  function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+  function renderUI() {
+    // 1. Month Picker
+    var monthInput = document.getElementById('overview-month-selector');
+    if (monthInput && monthInput.value !== selectedMonth) {
+      monthInput.value = selectedMonth;
+    }
+
+    // 2. Liquid & Net Worth Calculation
+    var liquid = 0, savings = 0;
+    state.accounts.forEach(function(a) {
+      var b = parseFloat(a.currentBalance) || 0;
+      if (a.type === 'cash' || a.type === 'bank' || a.type === 'mobile_banking') {
+        liquid += b;
+      } else if (a.type === 'savings_pot') {
+        savings += b;
+      }
+    });
+
+    var invested = 0;
+    state.investments.forEach(function(inv) {
+      invested += (parseFloat(inv.currentValuation) || 0);
+    });
+
+    var debtsOwed = 0;
+    state.debts.forEach(function(d) {
+      if (d.type === 'owed_by_us' && d.status !== 'cleared') {
+        debtsOwed += (parseFloat(d.remainingAmount) || 0);
+      }
+    });
+
+    var networth = liquid + savings + invested - debtsOwed;
+
+    // 3. Monthly Income & Expense for selectedMonth
+    var income = 0, expense = 0;
+    var monthTxs = [];
+    state.transactions.forEach(function(t) {
+      var d = String(t.date || '');
+      if (d.startsWith(selectedMonth)) {
+        monthTxs.push(t);
+        var amt = parseFloat(t.amount) || 0;
+        if (t.type === 'income') income += amt;
+        if (t.type === 'expense') expense += amt;
+      }
+    });
+
+    var savingsRate = income > 0 ? Math.max(0, Math.round(((income - expense) / income) * 100)) : 0;
+    var surplus = income - expense;
+
+    // 4. Update KPI Values & Submetrics
+    document.getElementById('kpi-networth').textContent = formatBDT(networth);
+    document.getElementById('kpi-sub-liquid').textContent = formatBDT(liquid);
+    document.getElementById('kpi-sub-invested').textContent = formatBDT(invested);
+
+    document.getElementById('kpi-liquid').textContent = formatBDT(liquid);
+    document.getElementById('kpi-sub-emergency').textContent = formatBDT(savings);
+
+    document.getElementById('kpi-income').textContent = formatBDT(income);
+    document.getElementById('kpi-sub-savingsrate').textContent = savingsRate + '%';
+
+    document.getElementById('kpi-expense').textContent = formatBDT(expense);
+    var surplusEl = document.getElementById('kpi-sub-surplus');
+    surplusEl.textContent = formatBDT(surplus);
+    if (surplus >= 0) {
+      surplusEl.className = "font-mono font-semibold text-emerald-400";
+    } else {
+      surplusEl.className = "font-mono font-semibold text-rose-400";
+    }
+
+    // 5. Account Count & Linked Pots
+    document.getElementById('accounts-count').textContent = state.accounts.length;
+    var accHtml = '';
+    state.accounts.slice(0, 4).forEach(function(a) {
+      accHtml += '<div class="p-3.5 rounded-xl border border-slate-800 bg-slate-800/40 hover:border-slate-700 transition-colors">' +
+        '<div class="flex items-center justify-between mb-1.5">' +
+          '<span class="text-xs font-semibold text-white truncate">' + a.name + '</span>' +
+          '<span class="text-[10px] text-slate-400 uppercase tracking-wider font-mono">' + (a.institution || '') + '</span>' +
+        '</div>' +
+        '<div class="text-lg font-bold font-mono tabular-nums text-white">' + formatBDT(a.currentBalance) + '</div>' +
+        '<div class="mt-1 text-[11px] text-slate-400 truncate">' + (a.notes || 'Linked fund') + '</div>' +
+      '</div>';
+    });
+    document.getElementById('overview-accounts-grid').innerHTML = accHtml;
+
+    // Full accounts tab grid
+    var fullAccHtml = '';
+    state.accounts.forEach(function(a) {
+      fullAccHtml += '<div class="p-4 rounded-xl border border-slate-800 bg-[#0F172A] shadow-xs space-y-2">' +
+        '<div class="flex items-center justify-between">' +
+          '<span class="text-xs font-semibold text-white">' + a.name + '</span>' +
+          '<span class="text-[10px] text-slate-400 uppercase font-mono px-2 py-0.5 bg-slate-800 rounded">' + (a.type || 'account') + '</span>' +
+        '</div>' +
+        '<div class="text-xl font-bold font-mono text-white">' + formatBDT(a.currentBalance) + '</div>' +
+        '<div class="text-xs text-slate-400">' + (a.institution || 'Personal Fund') + '</div>' +
+      '</div>';
+    });
+    document.getElementById('accounts-full-grid').innerHTML = fullAccHtml;
+
+    // 6. Recent Transactions Table (Overview + Ledger Tab)
+    var recentTxs = state.transactions.slice(0, 5);
+    var recentHtml = '';
+    recentTxs.forEach(function(t) {
+      var isInc = t.type === 'income';
+      recentHtml += '<tr class="hover:bg-slate-800/30">' +
+        '<td class="py-2.5 px-3 font-mono text-slate-400 text-[11px]">' + String(t.date || '').substring(0, 10) + '</td>' +
+        '<td class="py-2.5 px-3 font-medium text-slate-200">' + t.description + '</td>' +
+        '<td class="py-2.5 px-3 text-slate-400">' + (t.categoryId || 'General') + '</td>' +
+        '<td class="py-2.5 px-3 text-right font-mono font-semibold ' + (isInc ? 'text-emerald-400' : 'text-slate-100') + '">' + (isInc ? '+' : '-') + formatBDT(t.amount) + '</td>' +
+      '</tr>';
+    });
+    document.getElementById('overview-recent-tx-body').innerHTML = recentHtml || '<tr><td colspan="4" class="py-4 text-center text-slate-500">No transactions recorded yet</td></tr>';
+
+    var ledgerHtml = '';
+    state.transactions.slice(0, 50).forEach(function(t) {
+      var isInc = t.type === 'income';
+      ledgerHtml += '<tr class="hover:bg-slate-800/30">' +
+        '<td class="py-2.5 px-4 font-mono text-slate-400 text-[11px]">' + String(t.date || '').substring(0, 10) + '</td>' +
+        '<td class="py-2.5 px-4 font-medium text-slate-200">' + t.description + '</td>' +
+        '<td class="py-2.5 px-4 text-slate-400">' + (t.categoryId || 'General') + '</td>' +
+        '<td class="py-2.5 px-4 text-slate-400 font-mono text-[11px]">' + (t.fromAccountId || '-') + '</td>' +
+        '<td class="py-2.5 px-4 text-right font-mono font-semibold ' + (isInc ? 'text-emerald-400' : 'text-slate-100') + '">' + (isInc ? '+' : '-') + formatBDT(t.amount) + '</td>' +
+      '</tr>';
+    });
+    document.getElementById('ledger-table-body').innerHTML = ledgerHtml || '<tr><td colspan="5" class="py-6 text-center text-slate-500">No records found</td></tr>';
+
+    // 7. Monthly Envelopes List
+    var envHtml = '';
+    var fullEnvHtml = '';
+    var categories = state.categories.filter(function(c) { return c.type === 'expense'; });
+    if (categories.length === 0) {
+      categories = [
+        { id: 'cat_rent', name: 'Housing & Rent', defaultMonthlyBudget: 45000 },
+        { id: 'cat_groceries', name: 'Groceries & Food', defaultMonthlyBudget: 35000 },
+        { id: 'cat_utilities', name: 'Utilities & Internet', defaultMonthlyBudget: 9500 },
+        { id: 'cat_healthcare', name: 'Healthcare & Medicine', defaultMonthlyBudget: 7500 }
+      ];
+    }
+    categories.forEach(function(c) {
+      var spent = 0;
+      monthTxs.forEach(function(t) {
+        if (t.categoryId === c.id && t.type === 'expense') spent += (parseFloat(t.amount) || 0);
+      });
+      var allocated = parseFloat(c.defaultMonthlyBudget) || 10000;
+      var pct = allocated > 0 ? Math.min(100, Math.round((spent / allocated) * 100)) : 0;
+      var isOver = spent > allocated;
+
+      envHtml += '<div class="space-y-1.5">' +
+        '<div class="flex items-center justify-between text-xs">' +
+          '<span class="font-medium text-slate-200">' + c.name + '</span>' +
+          '<span class="font-mono text-slate-400">' + formatBDT(spent) + ' / ' + formatBDT(allocated) + '</span>' +
+        '</div>' +
+        '<div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">' +
+          '<div class="h-full rounded-full ' + (isOver ? 'bg-rose-500' : 'bg-emerald-500') + '" style="width: ' + pct + '%"></div>' +
+        '</div>' +
+      '</div>';
+
+      fullEnvHtml += '<div class="p-4 rounded-xl border border-slate-800 bg-[#0F172A] space-y-2">' +
+        '<div class="flex justify-between items-center text-xs">' +
+          '<span class="font-semibold text-white">' + c.name + '</span>' +
+          '<span class="font-mono text-slate-400">' + pct + '%</span>' +
+        '</div>' +
+        '<div class="text-base font-bold font-mono text-white">' + formatBDT(spent) + ' <span class="text-xs text-slate-400 font-normal">of ' + formatBDT(allocated) + '</span></div>' +
+        '<div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">' +
+          '<div class="h-full ' + (isOver ? 'bg-rose-500' : 'bg-emerald-500') + '" style="width: ' + pct + '%"></div>' +
+        '</div>' +
+      '</div>';
+    });
+    document.getElementById('overview-envelopes-list').innerHTML = envHtml;
+    document.getElementById('envelopes-full-grid').innerHTML = fullEnvHtml;
+
+    // 8. Debts & Investments
+    var debtsHtml = '';
+    state.debts.forEach(function(d) {
+      debtsHtml += '<div class="p-4 rounded-xl border border-slate-800 bg-[#0F172A] space-y-1">' +
+        '<div class="flex justify-between text-xs font-semibold text-white"><span>' + d.title + '</span><span class="text-rose-400 font-mono">' + formatBDT(d.remainingAmount) + '</span></div>' +
+        '<div class="text-[11px] text-slate-400">' + (d.counterparty || 'Counterparty') + '</div>' +
+      '</div>';
+    });
+    document.getElementById('debts-full-grid').innerHTML = debtsHtml || '<p class="text-xs text-slate-500">No active debts</p>';
+
+    var invHtml = '';
+    state.investments.forEach(function(i) {
+      invHtml += '<div class="p-4 rounded-xl border border-slate-800 bg-[#0F172A] space-y-1">' +
+        '<div class="flex justify-between text-xs font-semibold text-white"><span>' + i.name + '</span><span class="text-emerald-400 font-mono">' + formatBDT(i.currentValuation) + '</span></div>' +
+        '<div class="text-[11px] text-slate-400">' + (i.type || 'Asset') + '</div>' +
+      '</div>';
+    });
+    document.getElementById('investments-full-grid').innerHTML = invHtml || '<p class="text-xs text-slate-500">No investments listed</p>';
+
+    // 9. Dropdown Select Options
+    var optHtml = '';
+    state.accounts.forEach(function(a) {
+      optHtml += '<option value="' + a.id + '">' + a.name + ' (' + formatBDT(a.currentBalance) + ')</option>';
+    });
+    document.getElementById('modal-tx-account').innerHTML = optHtml;
+    document.getElementById('modal-tr-from').innerHTML = optHtml;
+    document.getElementById('modal-tr-to').innerHTML = optHtml;
+
+    // 10. Direct link to Google Sheets
+    if (state.spreadsheetUrl && state.spreadsheetUrl !== '#') {
+      var sheetLink = document.getElementById('sheet-direct-link');
+      if (sheetLink) sheetLink.href = state.spreadsheetUrl;
+    }
+  }
+
+  function loadData() {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(data) {
+        if (data) {
+          state = data;
+          renderUI();
+        }
+      }).withFailureHandler(function(err) {
+        console.error("RPC Error:", err);
+      }).apiGetFullData();
+    }
+  }
+
+  function submitTransaction(e) {
+    e.preventDefault();
+    var tx = {
+      type: document.getElementById('modal-tx-type').value,
+      amount: parseFloat(document.getElementById('modal-tx-amount').value),
+      description: document.getElementById('modal-tx-desc').value,
+      fromAccountId: document.getElementById('modal-tx-account').value,
+      date: new Date().toISOString().substring(0, 10)
+    };
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function() {
+        closeModal('txModal');
+        loadData();
+      }).apiRecordTransaction(tx);
+    }
+  }
+
+  function submitTransfer(e) {
+    e.preventDefault();
+    var fromId = document.getElementById('modal-tr-from').value;
+    var toId = document.getElementById('modal-tr-to').value;
+    var amount = parseFloat(document.getElementById('modal-tr-amount').value);
+    var desc = document.getElementById('modal-tr-desc').value;
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function() {
+        closeModal('transferModal');
+        loadData();
+      }).apiTransferFunds(fromId, toId, amount, desc);
+    }
+  }
+
+  function runArchival() {
+    var btn = document.getElementById('archivalBtn');
+    btn.textContent = "Archiving...";
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(function(count) {
+        alert("Archival complete! Recycled " + count + " transactions older than 5 years.");
+        btn.textContent = "Run 5-Year Archival Now";
+        loadData();
+      }).apiRunArchival();
+    }
+  }
+
+  window.onload = loadData;
+</script>

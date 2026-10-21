@@ -1,0 +1,400 @@
+<!-- frontend/Index.html -->
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Shongsar — Family Budget &amp; Wealth Manager</title>
+  <?!= include('frontend/Styles'); ?>
+</head>
+<body class="bg-[#0B1120] text-slate-100 min-h-screen pb-20 selection:bg-emerald-500/30">
+  
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-[#0F172A]/90 backdrop-blur-md border-b border-[#1E293B]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-6 h-16">
+      
+      <!-- Zone 1: Wordmark -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-xs">
+          শ
+        </div>
+        <div class="flex flex-col">
+          <span class="text-base font-bold text-white tracking-tight leading-none">Shongsar</span>
+          <span class="text-[10px] text-slate-400 font-medium tracking-wider mt-0.5">সংসার · FAMILY WEALTH</span>
+        </div>
+      </div>
+
+      <!-- Zone 2: Navigation Links -->
+      <nav class="hidden md:flex items-center gap-6 text-xs font-medium text-slate-400">
+        <button onclick="switchTab('overview')" id="nav-overview" class="tab-link text-emerald-400 font-bold border-b-2 border-emerald-500 py-1 whitespace-nowrap transition-colors">Overview</button>
+        <button onclick="switchTab('accounts')" id="nav-accounts" class="tab-link hover:text-slate-200 py-1 whitespace-nowrap transition-colors">Linked Funds</button>
+        <button onclick="switchTab('transactions')" id="nav-transactions" class="tab-link hover:text-slate-200 py-1 whitespace-nowrap transition-colors">Transactions</button>
+        <button onclick="switchTab('budgets')" id="nav-budgets" class="tab-link hover:text-slate-200 py-1 whitespace-nowrap transition-colors">Envelopes</button>
+        <button onclick="switchTab('debts')" id="nav-debts" class="tab-link hover:text-slate-200 py-1 whitespace-nowrap transition-colors">Debts & Assets</button>
+        <button onclick="switchTab('lifecycle')" id="nav-lifecycle" class="tab-link hover:text-slate-200 py-1 whitespace-nowrap transition-colors">5-Yr Retention</button>
+      </nav>
+
+      <!-- Zone 3: Currency Badge & Database Link -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <span class="px-2.5 py-1 text-xs font-mono font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 rounded-xl">৳ BDT</span>
+        <a id="sheet-direct-link" href="#" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 rounded-xl transition-colors">
+          <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>
+          <span>Sheets Database</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    
+    <!-- Tab 1: Overview -->
+    <section id="tab-overview" class="tab-content space-y-6">
+      
+      <!-- Top Banner & Command Center Controls -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div>
+          <h1 class="text-xl font-bold text-white tracking-tight">
+            Family Financial Command Center
+          </h1>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Real-time balance propagation backed by personal Google Spreadsheet database
+          </p>
+        </div>
+
+        {/* Action Controls */}
+        <div class="flex items-center gap-2">
+          {/* Month Selector */}
+          <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs font-medium text-slate-200">
+            <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            <input
+              type="month"
+              id="overview-month-selector"
+              onchange="onMonthChange(this.value)"
+              class="bg-transparent text-slate-200 focus:outline-none text-xs cursor-pointer font-medium"
+            />
+          </div>
+
+          <button
+            onclick="openModal('transferModal')"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 rounded-xl transition-colors whitespace-nowrap shadow-xs"
+          >
+            <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <span>Transfer Funds</span>
+          </button>
+
+          <button
+            onclick="openModal('txModal')"
+            class="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-colors whitespace-nowrap shadow-xs"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            <span>Record Transaction</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 High-Level KPI Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Net Worth Card -->
+        <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm relative overflow-hidden">
+          <div class="flex items-center justify-between text-xs font-medium text-slate-400 mb-2">
+            <span>Family Total Net Worth</span>
+            <span class="p-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2V5z"/><path d="M2 9v1c0 1.1.9 2 2 2h1"/><path d="M16 11h.01"/></svg>
+            </span>
+          </div>
+          <div id="kpi-networth" class="text-3xl font-bold font-mono tracking-tight text-white">৳ 0</div>
+          <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span>Liquid: <span id="kpi-sub-liquid" class="font-mono text-slate-300">৳ 0</span></span>
+            <span aria-hidden="true">·</span>
+            <span>Invested: <span id="kpi-sub-invested" class="font-mono text-slate-300">৳ 0</span></span>
+          </div>
+        </div>
+
+        <!-- Liquid Cash & Bank -->
+        <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm">
+          <div class="flex items-center justify-between text-xs font-medium text-slate-400 mb-2">
+            <span>Available Liquid Funds</span>
+            <span class="p-1.5 rounded-lg bg-blue-950/60 border border-blue-800/40 text-blue-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+            </span>
+          </div>
+          <div id="kpi-liquid" class="text-3xl font-bold font-mono tracking-tight text-white">৳ 0</div>
+          <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span>Emergency Pot: <span id="kpi-sub-emergency" class="font-mono text-slate-300">৳ 0</span></span>
+          </div>
+        </div>
+
+        <!-- Monthly Inflow -->
+        <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm">
+          <div class="flex items-center justify-between text-xs font-medium text-slate-400 mb-2">
+            <span>Monthly Total Inflow</span>
+            <span class="p-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            </span>
+          </div>
+          <div id="kpi-income" class="text-3xl font-bold font-mono tracking-tight text-emerald-400">৳ 0</div>
+          <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span>Savings Rate:</span>
+            <span id="kpi-sub-savingsrate" class="font-mono font-semibold text-emerald-400">0%</span>
+          </div>
+        </div>
+
+        <!-- Monthly Expenses & Burn -->
+        <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm">
+          <div class="flex items-center justify-between text-xs font-medium text-slate-400 mb-2">
+            <span>Monthly Expenses & Burn</span>
+            <span class="p-1.5 rounded-lg bg-rose-950/60 border border-rose-800/40 text-rose-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+            </span>
+          </div>
+          <div id="kpi-expense" class="text-3xl font-bold font-mono tracking-tight text-white">৳ 0</div>
+          <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span>Net Monthly Surplus:</span>
+            <span id="kpi-sub-surplus" class="font-mono font-semibold text-emerald-400">৳ 0</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Main 2-Column Split: Linked Accounts Overview + Envelope Progress -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left 2 Cols: Linked Accounts Snapshot & Recent Table -->
+        <div class="lg:col-span-2 space-y-6">
+          
+          <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white">Linked Source Accounts</h3>
+                <p class="text-xs text-slate-400">Double-entry real-time balances</p>
+              </div>
+              <button onclick="switchTab('accounts')" class="text-xs font-medium text-emerald-400 hover:text-emerald-300">
+                Manage All (<span id="accounts-count">0</span>) →
+              </button>
+            </div>
+            <div id="overview-accounts-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <!-- Recent Transactions Card -->
+          <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-white">Recent Transactions</h3>
+                <p class="text-xs text-slate-400">Latest activity in this period</p>
+              </div>
+              <button onclick="switchTab('transactions')" class="text-xs font-medium text-emerald-400 hover:text-emerald-300">
+                View Full Ledger →
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-[#1E293B] text-slate-400 font-semibold uppercase text-[10px]">
+                    <th class="py-2.5 px-3">Date</th>
+                    <th class="py-2.5 px-3">Description</th>
+                    <th class="py-2.5 px-3">Category</th>
+                    <th class="py-2.5 px-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-recent-tx-body" class="divide-y divide-slate-800/60"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Col: Monthly Envelopes -->
+        <div class="p-5 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white">Monthly Envelopes</h3>
+              <p class="text-xs text-slate-400">Budget allocation &amp; spent</p>
+            </div>
+            <button onclick="switchTab('budgets')" class="text-xs font-medium text-emerald-400 hover:text-emerald-300">
+              Details →
+            </button>
+          </div>
+          <div id="overview-envelopes-list" class="space-y-3.5"></div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Tab 2: Linked Funds -->
+    <section id="tab-accounts" class="tab-content hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Linked Accounts &amp; Financial Pots</h2>
+          <p class="text-xs text-slate-400">Primary bank accounts, cash wallets, and earmarked funds</p>
+        </div>
+        <button onclick="openModal('transferModal')" class="px-3.5 py-1.5 text-xs font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 rounded-xl hover:bg-emerald-900/60 transition-colors">Transfer Funds</button>
+      </div>
+      <div id="accounts-full-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- Tab 3: Transactions Ledger -->
+    <section id="tab-transactions" class="tab-content hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Transaction Ledger</h2>
+          <p class="text-xs text-slate-400">Double-entry verified records backed by Google Sheets</p>
+        </div>
+        <button onclick="openModal('txModal')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-colors shadow-xs">+ Record Transaction</button>
+      </div>
+      <div class="bg-[#0F172A] rounded-2xl border border-[#1E293B] overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-800/40 border-b border-[#1E293B] text-slate-400 font-semibold uppercase text-[10px]">
+              <th class="py-3 px-4">Date</th>
+              <th class="py-3 px-4">Description</th>
+              <th class="py-3 px-4">Category</th>
+              <th class="py-3 px-4">Account</th>
+              <th class="py-3 px-4 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-table-body" class="divide-y divide-slate-800/60"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 4: Budget Envelopes -->
+    <section id="tab-budgets" class="tab-content hidden space-y-4">
+      <div>
+        <h2 class="text-lg font-bold text-white">Monthly Category Budget Envelopes</h2>
+        <p class="text-xs text-slate-400">Zero-based envelope allocations and remaining limits</p>
+      </div>
+      <div id="envelopes-full-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- Tab 5: Debts & Assets -->
+    <section id="tab-debts" class="tab-content hidden space-y-6">
+      <div class="space-y-3">
+        <div>
+          <h2 class="text-lg font-bold text-white">Debts &amp; Counterparty Loans</h2>
+          <p class="text-xs text-slate-400">Track money owed to others and receivables</p>
+        </div>
+        <div id="debts-full-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </div>
+      <div class="space-y-3 pt-2">
+        <div>
+          <h2 class="text-lg font-bold text-white">Investments &amp; Asset Valuations</h2>
+          <p class="text-xs text-slate-400">Long-term capital assets and expected yield</p>
+        </div>
+        <div id="investments-full-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- Tab 6: 5-Year Lifecycle Retention -->
+    <section id="tab-lifecycle" class="tab-content hidden space-y-4">
+      <div class="p-6 rounded-2xl bg-[#0F172A] border border-[#1E293B] shadow-sm space-y-4">
+        <h2 class="text-base font-bold text-white">5-Year Historical Retention &amp; Rolling Archival</h2>
+        <p class="text-xs text-slate-400 leading-relaxed max-w-xl">
+          Google Apps Script enforces an automatic 5-year retention lifecycle. Any transaction older than 5 years is safely preserved in the <span class="font-mono text-emerald-400">Archive_5Yr</span> sheet while keeping the active ledger high-performance.
+        </p>
+        <div class="pt-2">
+          <button onclick="runArchival()" id="archivalBtn" class="px-4 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-colors">
+            Run 5-Year Archival Now
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0F172A]/95 backdrop-blur-md border-t border-[#1E293B] px-3 py-2 flex items-center justify-around">
+    <button onclick="switchTab('overview')" id="mobile-nav-overview" class="flex flex-col items-center gap-0.5 p-1 text-[10px] font-medium text-emerald-400">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      <span>Overview</span>
+    </button>
+    <button onclick="switchTab('accounts')" id="mobile-nav-accounts" class="flex flex-col items-center gap-0.5 p-1 text-[10px] font-medium text-slate-400 hover:text-slate-200">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+      <span>Funds</span>
+    </button>
+    <button onclick="openModal('txModal')" class="flex items-center justify-center w-11 h-11 rounded-full bg-emerald-600 text-white shadow-lg -mt-5 hover:bg-emerald-500 transition-transform active:scale-95">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+    </button>
+    <button onclick="switchTab('transactions')" id="mobile-nav-transactions" class="flex flex-col items-center gap-0.5 p-1 text-[10px] font-medium text-slate-400 hover:text-slate-200">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>
+      <span>Ledger</span>
+    </button>
+    <button onclick="switchTab('budgets')" id="mobile-nav-budgets" class="flex flex-col items-center gap-0.5 p-1 text-[10px] font-medium text-slate-400 hover:text-slate-200">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+      <span>Envelopes</span>
+    </button>
+  </nav>
+
+  <!-- Modals -->
+  <div id="txModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+    <div class="w-full max-w-md bg-[#0F172A] rounded-2xl border border-slate-700 p-5 shadow-2xl space-y-4 text-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white">Record Transaction</h3>
+        <button onclick="closeModal('txModal')" class="text-slate-400 hover:text-slate-200 text-base">✕</button>
+      </div>
+      <form onsubmit="submitTransaction(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">Type</label>
+          <select id="modal-tx-type" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">Amount (৳)</label>
+          <input type="number" id="modal-tx-amount" step="any" min="0.01" required placeholder="0.00" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 font-mono text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">Description</label>
+          <input type="text" id="modal-tx-desc" required placeholder="e.g. Weekly Provisions" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">Account</label>
+          <select id="modal-tx-account" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"></select>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('txModal')" class="px-3.5 py-1.5 text-slate-400 hover:text-slate-200">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors">Save Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="transferModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+    <div class="w-full max-w-md bg-[#0F172A] rounded-2xl border border-slate-700 p-5 shadow-2xl space-y-4 text-slate-100">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white">Transfer Funds</h3>
+        <button onclick="closeModal('transferModal')" class="text-slate-400 hover:text-slate-200 text-base">✕</button>
+      </div>
+      <form onsubmit="submitTransfer(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">Amount (৳)</label>
+          <input type="number" id="modal-tr-amount" step="any" min="0.01" required placeholder="0.00" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 font-mono text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">From Source Account</label>
+          <select id="modal-tr-from" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"></select>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">To Destination Account</label>
+          <select id="modal-tr-to" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"></select>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1 text-slate-300">Transfer Memo</label>
+          <input type="text" id="modal-tr-desc" placeholder="e.g. ATM cash withdrawal or emergency buffer" class="w-full px-3 py-2 border border-slate-700 rounded-xl bg-slate-800 text-white focus:outline-none focus:border-emerald-500">
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('transferModal')" class="px-3.5 py-1.5 text-slate-400 hover:text-slate-200">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl font-semibold transition-colors">Execute Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <?!= include('frontend/Scripts'); ?>
+</body>
+</html>

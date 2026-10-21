@@ -1,0 +1,6 @@
+{
+  "name": "Shongsar - Family Budget & Wealth Manager",
+  "description": "Family budget planning and wealth tracking platform with real-time Google Sheets database sync and automated Google Apps Script maintenance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
