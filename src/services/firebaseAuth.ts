@@ -12,7 +12,20 @@ import {
   User,
   signOut,
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+// Optional config loader: supports local file, environment variables, or fallback
+const configModules = import.meta.glob<{ default: Record<string, string> }>('/firebase-applet-config.json', {
+  eager: true,
+});
+const fileConfig = configModules['/firebase-applet-config.json']?.default;
+
+const firebaseConfig = fileConfig || {
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'gen-lang-client-0666629749',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:308892196447:web:1e8ca52a6ad2e03de6c5ea',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBMpdf5J1I9fM3uce6RYZlp8AcqBw7jxTg',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'gen-lang-client-0666629749.firebaseapp.com',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'gen-lang-client-0666629749.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '308892196447',
+};
 
 // Reuse existing app if initialized
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();

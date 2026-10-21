@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Sensitive credentials & config (never commit to GitHub)
+firebase-applet-config.json
+.clasp.json
+.clasprc.json
+
