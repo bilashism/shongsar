@@ -71,18 +71,53 @@ You do **not** need to install Google Clasp or copy OAuth credentials into GitHu
 
 ---
 
-### Step 1: Deploy Web App in Google Apps Script
+### Step 1: Configure Apps Script Manifest & Deploy Web App
 
 1. Open your Google Spreadsheet (e.g., at [sheets.new](https://sheets.new)).
 2. Go to **Extensions** > **Apps Script**.
-3. Copy the project files from `backend/`, `frontend/`, and `appsscript.json` (or import this repository).
-4. In the top right of the Apps Script editor, click **Deploy** > **New deployment**.
-5. Click the gear icon ⚙️ next to "Select type" and select **Web app**.
-6. Set:
-   - **Execute as**: `Me (your-email@gmail.com)`
-   - **Who has access**: `Anyone`
-7. Click **Deploy** and authorize the permissions.
-8. Copy the generated **Web app URL** (e.g., `https://script.google.com/macros/s/AKfyc.../exec`).
+3. **Enable Manifest View**:
+   - In the left sidebar of the Apps Script editor, click **Project Settings** (gear icon ⚙️).
+   - Check the box: **"Show 'appsscript.json' manifest file in editor"**.
+4. **Update `appsscript.json`**:
+   - In the left sidebar, click `<> Editor`, then select `appsscript.json`.
+   - Replace its contents with the repo's `appsscript.json`:
+   ```json
+   {
+     "timeZone": "Asia/Dhaka",
+     "dependencies": {},
+     "exceptionLogging": "STACKDRIVER",
+     "runtimeVersion": "V8",
+     "oauthScopes": [
+       "https://www.googleapis.com/auth/spreadsheets",
+       "https://www.googleapis.com/auth/script.projects",
+       "https://www.googleapis.com/auth/script.deployments",
+       "https://www.googleapis.com/auth/script.external_request"
+     ],
+     "webapp": {
+       "executeAs": "USER_DEPLOYING",
+       "access": "ANYONE_ANONYMOUS"
+     }
+   }
+   ```
+   *(Crucial: The `oauthScopes` array allows the script to update its own code via the Google Apps Script API! Without it, Google blocks deployments with 403 `ACCESS_TOKEN_SCOPE_INSUFFICIENT`)*.
+
+5. **Enable the Google Apps Script API**:
+   - Visit: [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings)
+   - Ensure the toggle for **Google Apps Script API** is switched to **ON**.
+
+6. **Authorize the Script Project**:
+   - Back in the Apps Script editor, select any function from the dropdown (e.g., `menuTestCicdPermissions` or `onOpen`) and click **Run**.
+   - When Google displays **"Authorization Required"**, click **Review Permissions** > Choose your account > **Advanced** > **Go to Shongsar (unsafe)** > **Allow**.
+
+7. **Deploy the Web App**:
+   - In the top right of the editor, click **Deploy** > **New deployment**.
+   - Click the gear icon ⚙️ next to "Select type" and choose **Web app**.
+   - Set:
+     - **Execute as**: `Me (your-email@gmail.com)`
+     - **Who has access**: `Anyone`
+   - Click **Deploy**.
+   - Copy the generated **Web app URL** (`https://script.google.com/macros/s/AKfyc.../exec`).
+
 
 ---
 
@@ -163,7 +198,32 @@ Google Clasp requires running `npx @google/clasp login` locally, extracting a JS
 #### 2. What if I get an "Unauthorized: Invalid DEPLOY_KEY" error?
 Make sure the value in your GitHub repository secret `DEPLOY_KEY` exactly matches the value you entered in your Google Sheet under **🌿 Shongsar (সংসার)** > **🔑 Configure CI/CD Deploy Key**.
 
-#### 3. How do other contributors or forkers use this?
+#### 3. What if I get "Google Apps Script API content update failed (403): Request had insufficient authentication scopes"?
+This happens when the Apps Script editor has not been given permission to manage its own files. To fix:
+1. Open the Apps Script editor: **Project Settings** (gear icon ⚙️) > check **Show 'appsscript.json' manifest file in editor**.
+2. Switch back to `<> Editor` > select `appsscript.json`, and ensure it contains the `"oauthScopes"` list:
+   ```json
+   "oauthScopes": [
+     "https://www.googleapis.com/auth/spreadsheets",
+     "https://www.googleapis.com/auth/script.projects",
+     "https://www.googleapis.com/auth/script.deployments",
+     "https://www.googleapis.com/auth/script.external_request"
+   ]
+   ```
+3. Visit [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings) and toggle **Google Apps Script API** to **ON**.
+4. In the Apps Script editor, select the function `menuTestCicdPermissions` (or `onOpen`) and click **Run**. Accept Google's authorization popup.
+5. In your Google Sheet, click **🌿 Shongsar** > **🧪 Test CI/CD Permissions & Authorize** to confirm you get the green checkmark!
+6. Click **Deploy** > **Manage deployments** > edit your active deployment > choose **New version** > click **Deploy** so the live webhook endpoint runs with the authorized scopes.
+
+#### 4. How does GitHub CI/CD sync code to the Apps Script editor?
+When you push commits to GitHub:
+- The GitHub Actions workflow (`deploy.yml`) runs `.github/scripts/deploy-webhook.cjs`.
+- It reads all files in `backend/*.gs`, `frontend/*.html`, and `appsscript.json`.
+- It sends them to your deployed Web App (`WEBAPP_URL`), authenticated with your `DEPLOY_KEY`.
+- Apps Script receives the payload and calls `https://script.googleapis.com/v1/projects/{scriptId}/content`, overwriting the files directly in your script editor.
+- If you have your Apps Script editor open in a browser tab, simply refresh the page to see all newly synced files and versions!
+
+#### 5. How do other contributors or forkers use this?
 When someone forks your repository, they only need to:
 1. Deploy their own copy of the Web App from their Google Sheet.
 2. Set their own `DEPLOY_KEY` in their spreadsheet.

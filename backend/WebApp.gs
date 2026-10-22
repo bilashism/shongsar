@@ -100,9 +100,13 @@ function doPost(e) {
       var responseText = contentResponse.getContentText();
 
       if (responseCode >= 400) {
+        var guidance = "";
+        if (responseCode === 403 && responseText.indexOf("ACCESS_TOKEN_SCOPE_INSUFFICIENT") !== -1) {
+          guidance = " -> Solution: Update your Apps Script Editor's appsscript.json with 'oauthScopes' containing 'https://www.googleapis.com/auth/script.projects', enable Google Apps Script API at https://script.google.com/home/usersettings, and click 'Run' on any function in the editor to re-authorize.";
+        }
         return ContentService.createTextOutput(JSON.stringify({
           success: false,
-          error: "Google Apps Script API content update failed (" + responseCode + "): " + responseText
+          error: "Google Apps Script API content update failed (" + responseCode + "): " + responseText + guidance
         })).setMimeType(ContentService.MimeType.JSON);
       }
 

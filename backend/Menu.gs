@@ -12,6 +12,7 @@ function onOpen() {
     .addItem("⏰ Setup Weekly 5-Year Trigger", "installWeeklyArchivalTrigger")
     .addSeparator()
     .addItem("🔑 Configure CI/CD Deploy Key", "menuConfigureDeployKey")
+    .addItem("🧪 Test CI/CD Permissions & Authorize", "menuTestCicdPermissions")
     .addItem("📋 View GitHub CI/CD Info", "menuShowCicdInfo")
     .addSeparator()
     .addItem("ℹ️ About Shongsar Engine", "showAboutDialog")
@@ -85,6 +86,60 @@ function menuShowCicdInfo() {
     '</div>';
 
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(360), "GitHub CI/CD Info");
+}
+
+/**
+ * Validates whether the Apps Script API is enabled and that oauthScopes
+ * includes permission to update project content and deployments.
+ */
+function menuTestCicdPermissions() {
+  var ui = SpreadsheetApp.getUi();
+  var scriptId = ScriptApp.getScriptId();
+  var authToken = ScriptApp.getOAuthToken();
+
+  try {
+    var testUrl = "https://script.googleapis.com/v1/projects/" + scriptId;
+    var resp = UrlFetchApp.fetch(testUrl, {
+      method: "get",
+      headers: { Authorization: "Bearer " + authToken },
+      muteHttpExceptions: true
+    });
+
+    var code = resp.getResponseCode();
+    var body = resp.getContentText();
+
+    if (code === 200) {
+      ui.alert(
+        "✅ CI/CD Ready & Authorized!",
+        "Google Apps Script API is enabled and your script has valid project management scopes.\n\n" +
+        "GitHub Actions webhook deployments will succeed! 🎉",
+        ui.ButtonSet.OK
+      );
+    } else if (code === 403 && body.indexOf("ACCESS_TOKEN_SCOPE_INSUFFICIENT") !== -1) {
+      ui.alert(
+        "❌ Insufficient Scopes (403)",
+        "The script does not yet have the 'script.projects' scope authorized.\n\n" +
+        "Fix in 3 steps:\n" +
+        "1. In Apps Script Editor: Project Settings > Check 'Show appsscript.json manifest file in editor'.\n" +
+        "2. Copy the 'oauthScopes' array from GitHub's appsscript.json into your editor's appsscript.json.\n" +
+        "3. Select any function and click 'Run' to grant permissions in the Google authorization popup.",
+        ui.ButtonSet.OK
+      );
+    } else if (code === 403 && (body.indexOf("SERVICE_DISABLED") !== -1 || body.indexOf("not enabled") !== -1 || body.indexOf("has not enabled") !== -1)) {
+      ui.alert(
+        "❌ Google Apps Script API Disabled (403)",
+        "The Google Apps Script API must be enabled for your Google account:\n\n" +
+        "1. Open https://script.google.com/home/usersettings\n" +
+        "2. Toggle 'Google Apps Script API' to ON.\n" +
+        "3. Re-test this menu option.",
+        ui.ButtonSet.OK
+      );
+    } else {
+      ui.alert("⚠️ API Response (" + code + ")", body, ui.ButtonSet.OK);
+    }
+  } catch (err) {
+    ui.alert("❌ Error Testing Permissions", err.toString(), ui.ButtonSet.OK);
+  }
 }
 
 function openWebAppUrlDialog() {
