@@ -740,9 +740,9 @@ const FRONTEND_INDEX_HTML = `<!-- frontend/Index.html -->
           </p>
         </div>
 
-        {/* Action Controls */}
+        <!-- Action Controls -->
         <div class="flex items-center gap-2">
-          {/* Month Selector */}
+          <!-- Month Selector -->
           <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs font-medium text-slate-200">
             <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
             <input
