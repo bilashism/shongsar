@@ -91,7 +91,8 @@ You do **not** need to install Google Clasp or copy OAuth credentials into GitHu
        "https://www.googleapis.com/auth/spreadsheets",
        "https://www.googleapis.com/auth/script.projects",
        "https://www.googleapis.com/auth/script.deployments",
-       "https://www.googleapis.com/auth/script.external_request"
+       "https://www.googleapis.com/auth/script.external_request",
+       "https://www.googleapis.com/auth/script.container.ui"
      ],
      "webapp": {
        "executeAs": "USER_DEPLOYING",
@@ -207,7 +208,8 @@ This happens when the Apps Script editor has not been given permission to manage
      "https://www.googleapis.com/auth/spreadsheets",
      "https://www.googleapis.com/auth/script.projects",
      "https://www.googleapis.com/auth/script.deployments",
-     "https://www.googleapis.com/auth/script.external_request"
+     "https://www.googleapis.com/auth/script.external_request",
+     "https://www.googleapis.com/auth/script.container.ui"
    ]
    ```
 3. Visit [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings) and toggle **Google Apps Script API** to **ON**.
