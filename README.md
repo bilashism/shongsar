@@ -215,7 +215,35 @@ This happens when the Apps Script editor has not been given permission to manage
 5. In your Google Sheet, click **🌿 Shongsar** > **🧪 Test CI/CD Permissions & Authorize** to confirm you get the green checkmark!
 6. Click **Deploy** > **Manage deployments** > edit your active deployment > choose **New version** > click **Deploy** so the live webhook endpoint runs with the authorized scopes.
 
-#### 4. How does GitHub CI/CD sync code to the Apps Script editor?
+#### 4. What if I get "SERVICE_DISABLED" or "You need additional access to project ... Missing resourcemanager.projects.get"?
+Every Apps Script project starts linked to an internal, Google-managed container project (e.g., `652661027813`). Because Google locks IAM access to these default containers, opening the console link can show *"You need additional access to the project: ... Missing or blocked permissions: resourcemanager.projects.get"* without an Enable button.
+
+**Fix: Link your own free Google Cloud Project (takes 2 minutes)**:
+
+1. **Create a Free Project**:
+   - Go to [Google Cloud Console: Create a Project](https://console.cloud.google.com/projectcreate).
+   - Enter a Project Name (e.g., `Shongsar-CICD`) and click **Create** (no billing required).
+
+2. **Enable Google Apps Script API**:
+   - Visit the [Google Apps Script API Library Page](https://console.cloud.google.com/apis/library/script.googleapis.com).
+   - Ensure your new project is selected in the top bar dropdown.
+   - Click the blue **ENABLE** button (works immediately because you own this project!).
+
+3. **Copy Your Project Number**:
+   - In Cloud Console, go to **Dashboard** or **Project Settings** (gear icon) and copy the **Project Number** (a numeric string, e.g. `987654321012`).
+
+4. **Link to Apps Script**:
+   - Open your Google Apps Script editor.
+   - On the left sidebar, click the gear icon ⚙️ (**Project Settings**).
+   - Scroll down to **Google Cloud Platform (GCP) Project** and click **Change project**.
+   - Paste your **Project Number** into the box and click **Set project**.
+
+5. **Authorize & Re-Deploy**:
+   - In your Google Sheet menu, click **🌿 Shongsar** > **🧪 Test CI/CD Permissions & Authorize** (or run `menuTestCicdPermissions` in the script editor) and grant the prompt.
+   - Click **Deploy** > **Manage deployments** > click the pencil ✏️ to edit > select **New version** > click **Deploy**.
+   - In GitHub, go to **Actions** and click **Re-run all jobs**. Your workflow will succeed and sync your code!
+
+#### 5. How does GitHub CI/CD sync code to the Apps Script editor?
 When you push commits to GitHub:
 - The GitHub Actions workflow (`deploy.yml`) runs `.github/scripts/deploy-webhook.cjs`.
 - It reads all files in `backend/*.gs`, `frontend/*.html`, and `appsscript.json`.
@@ -223,7 +251,7 @@ When you push commits to GitHub:
 - Apps Script receives the payload and calls `https://script.googleapis.com/v1/projects/{scriptId}/content`, overwriting the files directly in your script editor.
 - If you have your Apps Script editor open in a browser tab, simply refresh the page to see all newly synced files and versions!
 
-#### 5. How do other contributors or forkers use this?
+#### 6. How do other contributors or forkers use this?
 When someone forks your repository, they only need to:
 1. Deploy their own copy of the Web App from their Google Sheet.
 2. Set their own `DEPLOY_KEY` in their spreadsheet.

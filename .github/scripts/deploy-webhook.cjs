@@ -109,7 +109,26 @@ async function executeDeploy() {
     if (!response.ok || (result && result.success === false)) {
       console.error('\n❌ Deployment failed!');
       console.error('Status:', response.status);
-      console.error('Error Details:', result.error || responseText);
+      var errStr = result.error || responseText;
+      console.error('Error Details:', errStr);
+
+      if (errStr.includes('SERVICE_DISABLED') || errStr.includes('has not been used in project')) {
+        console.error('\n======================================================');
+        console.error('💡 HOW TO FIX: LINK YOUR FREE GOOGLE CLOUD PROJECT');
+        console.error('======================================================');
+        console.error('Default Apps Script containers restrict direct console activation.');
+        console.error('Link your own free Google Cloud Project in 4 quick steps (takes 2 min):');
+        console.error('');
+        console.error('1. Create a free project (e.g. Shongsar-CICD):');
+        console.error('   👉 https://console.cloud.google.com/projectcreate');
+        console.error('2. Enable Google Apps Script API in that project:');
+        console.error('   👉 https://console.cloud.google.com/apis/library/script.googleapis.com');
+        console.error('3. Copy your numeric Project Number from Cloud Console Settings/Dashboard.');
+        console.error('4. In Apps Script Editor: click ⚙️ Project Settings > Google Cloud Platform (GCP) Project > "Change project" > paste Project Number and save.');
+        console.error('5. Click Deploy > Manage deployments > edit > New version > Deploy, then re-run this workflow.');
+        console.error('======================================================\n');
+      }
+
       process.exit(1);
     }
 

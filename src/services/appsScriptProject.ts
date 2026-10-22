@@ -110,6 +110,8 @@ function doPost(e) {
         var guidance = "";
         if (responseCode === 403 && responseText.indexOf("ACCESS_TOKEN_SCOPE_INSUFFICIENT") !== -1) {
           guidance = " -> Solution: Update your Apps Script Editor's appsscript.json with 'oauthScopes' containing 'https://www.googleapis.com/auth/script.projects', enable Google Apps Script API at https://script.google.com/home/usersettings, and click 'Run' on any function in the editor to re-authorize.";
+        } else if (responseCode === 403 && (responseText.indexOf("SERVICE_DISABLED") !== -1 || responseText.indexOf("has not been used in project") !== -1)) {
+          guidance = " -> Solution: Google Apps Script API is not enabled for this script's GCP container project. If opening the link shows 'You need additional access / missing resourcemanager.projects.get', create a free project at https://console.cloud.google.com/projectcreate, enable Google Apps Script API in it, copy the numeric Project Number, and link it via Apps Script Editor > Project Settings (gear icon) > Google Cloud Platform (GCP) Project > Change project.";
         }
         return ContentService.createTextOutput(JSON.stringify({
           success: false,
@@ -631,13 +633,14 @@ function menuTestCicdPermissions() {
         "3. Select any function and click 'Run' to grant permissions in the Google authorization popup.",
         ui.ButtonSet.OK
       );
-    } else if (code === 403 && (body.indexOf("SERVICE_DISABLED") !== -1 || body.indexOf("not enabled") !== -1 || body.indexOf("has not enabled") !== -1)) {
+    } else if (code === 403 && (body.indexOf("SERVICE_DISABLED") !== -1 || body.indexOf("not enabled") !== -1 || body.indexOf("has not enabled") !== -1 || body.indexOf("has not been used") !== -1)) {
       ui.alert(
         "❌ Google Apps Script API Disabled (403)",
-        "The Google Apps Script API must be enabled for your Google account:\\n\\n" +
-        "1. Open https://script.google.com/home/usersettings\\n" +
-        "2. Toggle 'Google Apps Script API' to ON.\\n" +
-        "3. Re-test this menu option.",
+        "The Google Apps Script API is not activated for this script's Google Cloud project.\\n\\n" +
+        "If opening the activation link gives 'You need additional access / missing resourcemanager.projects.get', follow these 3 quick steps:\\n\\n" +
+        "1. Create a free project at https://console.cloud.google.com/projectcreate\\n" +
+        "2. Enable Google Apps Script API at https://console.cloud.google.com/apis/library/script.googleapis.com\\n" +
+        "3. In Apps Script Editor: Project Settings (⚙️) > Google Cloud Platform (GCP) Project > 'Change project' > paste your numeric Project Number and save.",
         ui.ButtonSet.OK
       );
     } else {

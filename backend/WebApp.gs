@@ -103,6 +103,8 @@ function doPost(e) {
         var guidance = "";
         if (responseCode === 403 && responseText.indexOf("ACCESS_TOKEN_SCOPE_INSUFFICIENT") !== -1) {
           guidance = " -> Solution: Update your Apps Script Editor's appsscript.json with 'oauthScopes' containing 'https://www.googleapis.com/auth/script.projects', enable Google Apps Script API at https://script.google.com/home/usersettings, and click 'Run' on any function in the editor to re-authorize.";
+        } else if (responseCode === 403 && (responseText.indexOf("SERVICE_DISABLED") !== -1 || responseText.indexOf("has not been used in project") !== -1)) {
+          guidance = " -> Solution: Google Apps Script API is not enabled for this script's GCP container project. If opening the link shows 'You need additional access / missing resourcemanager.projects.get', create a free project at https://console.cloud.google.com/projectcreate, enable Google Apps Script API in it, copy the numeric Project Number, and link it via Apps Script Editor > Project Settings (gear icon) > Google Cloud Platform (GCP) Project > Change project.";
         }
         return ContentService.createTextOutput(JSON.stringify({
           success: false,

@@ -125,13 +125,14 @@ function menuTestCicdPermissions() {
         "3. Select any function and click 'Run' to grant permissions in the Google authorization popup.",
         ui.ButtonSet.OK
       );
-    } else if (code === 403 && (body.indexOf("SERVICE_DISABLED") !== -1 || body.indexOf("not enabled") !== -1 || body.indexOf("has not enabled") !== -1)) {
+    } else if (code === 403 && (body.indexOf("SERVICE_DISABLED") !== -1 || body.indexOf("not enabled") !== -1 || body.indexOf("has not enabled") !== -1 || body.indexOf("has not been used") !== -1)) {
       ui.alert(
         "❌ Google Apps Script API Disabled (403)",
-        "The Google Apps Script API must be enabled for your Google account:\n\n" +
-        "1. Open https://script.google.com/home/usersettings\n" +
-        "2. Toggle 'Google Apps Script API' to ON.\n" +
-        "3. Re-test this menu option.",
+        "The Google Apps Script API is not activated for this script's Google Cloud project.\n\n" +
+        "If opening the activation link gives 'You need additional access / missing resourcemanager.projects.get', follow these 3 quick steps:\n\n" +
+        "1. Create a free project at https://console.cloud.google.com/projectcreate\n" +
+        "2. Enable Google Apps Script API at https://console.cloud.google.com/apis/library/script.googleapis.com\n" +
+        "3. In Apps Script Editor: Project Settings (⚙️) > Google Cloud Platform (GCP) Project > 'Change project' > paste your numeric Project Number and save.",
         ui.ButtonSet.OK
       );
     } else {
