@@ -17,7 +17,7 @@ export interface AppsScriptFile {
 // 1. backend/WebApp.gs
 const BACKEND_WEB_APP_GS = `/**
  * @file backend/WebApp.gs
- * Web App entry point and client RPC controller.
+ * Web App entry point, client RPC controller, and zero-token CI/CD Webhook deployer.
  */
 
 var SPREADSHEET_NAME = "shongsar";
@@ -26,11 +26,153 @@ var SPREADSHEET_NAME = "shongsar";
  * Serves the Shongsar frontend Web App.
  */
 function doGet(e) {
+  if (e && e.parameter && e.parameter.action === "ping") {
+    var storedKey = PropertiesService.getScriptProperties().getProperty("DEPLOY_KEY");
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "ok",
+      app: "Shongsar",
+      scriptId: ScriptApp.getScriptId(),
+      deployKeyConfigured: !!storedKey,
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   var template = HtmlService.createTemplateFromFile("frontend/Index");
   return template.evaluate()
     .setTitle("Shongsar — Family Budget & Wealth Manager")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no");
+}
+
+/**
+ * Handles incoming CI/CD Webhook deployments from GitHub Actions.
+ * Eliminates the need for local CLASPRC_JSON / OAuth token exports.
+ */
+function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: "Missing request payload in POST body"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var payload = JSON.parse(e.postData.contents);
+    var storedSecret = PropertiesService.getScriptProperties().getProperty("DEPLOY_KEY");
+
+    if (!storedSecret) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: "DEPLOY_KEY is not configured in this Google Sheet yet. Please open the Google Sheet, click '🌿 Shongsar' in the top menu, and select '🔑 Configure CI/CD Deploy Key' to set your secret passphrase."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (!payload.deployKey || payload.deployKey !== storedSecret) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: "Unauthorized: Invalid DEPLOY_KEY provided by GitHub Actions."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (payload.action === "PING") {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: "Authentication successful. Apps Script Webhook receiver is ready.",
+        scriptId: ScriptApp.getScriptId(),
+        timestamp: new Date().toISOString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (payload.action === "DEPLOY_FILES") {
+      if (!payload.files || !Array.isArray(payload.files) || payload.files.length === 0) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: "No files array provided in deployment payload."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var scriptId = ScriptApp.getScriptId();
+      var authToken = ScriptApp.getOAuthToken();
+
+      var updateContentUrl = "https://script.googleapis.com/v1/projects/" + scriptId + "/content";
+      var contentResponse = UrlFetchApp.fetch(updateContentUrl, {
+        method: "put",
+        contentType: "application/json",
+        headers: { Authorization: "Bearer " + authToken },
+        payload: JSON.stringify({ files: payload.files }),
+        muteHttpExceptions: true
+      });
+
+      var responseCode = contentResponse.getResponseCode();
+      var responseText = contentResponse.getContentText();
+
+      if (responseCode >= 400) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: "Google Apps Script API content update failed (" + responseCode + "): " + responseText
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var versionNumber = null;
+      var commitRef = payload.commitSha ? payload.commitSha.substring(0, 7) : "webhook";
+      var versionDescription = payload.description || ("CI/CD Release " + commitRef + " via Webhook");
+
+      try {
+        var versionUrl = "https://script.googleapis.com/v1/projects/" + scriptId + "/versions";
+        var versionResponse = UrlFetchApp.fetch(versionUrl, {
+          method: "post",
+          contentType: "application/json",
+          headers: { Authorization: "Bearer " + authToken },
+          payload: JSON.stringify({ description: versionDescription }),
+          muteHttpExceptions: true
+        });
+
+        if (versionResponse.getResponseCode() === 200) {
+          var versionData = JSON.parse(versionResponse.getContentText());
+          versionNumber = versionData.versionNumber;
+
+          var deploymentId = payload.deploymentId || PropertiesService.getScriptProperties().getProperty("DEPLOYMENT_ID");
+          if (deploymentId && versionNumber) {
+            var deployUrl = "https://script.googleapis.com/v1/projects/" + scriptId + "/deployments/" + deploymentId;
+            UrlFetchApp.fetch(deployUrl, {
+              method: "put",
+              contentType: "application/json",
+              headers: { Authorization: "Bearer " + authToken },
+              payload: JSON.stringify({
+                deploymentConfig: {
+                  versionNumber: versionNumber,
+                  description: versionDescription
+                }
+              }),
+              muteHttpExceptions: true
+            });
+          }
+        }
+      } catch (versionErr) {
+        Logger.log("Versioning notice: " + versionErr.toString());
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: "Project files synchronized successfully without Clasp!",
+        filesUpdatedCount: payload.files.length,
+        versionNumber: versionNumber,
+        scriptId: scriptId,
+        timestamp: new Date().toISOString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: "Unknown action: " + payload.action
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: "Server exception in doPost: " + err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**
@@ -364,7 +506,7 @@ function installWeeklyArchivalTrigger() {
 // 5. backend/Menu.gs
 const BACKEND_MENU_GS = `/**
  * @file backend/Menu.gs
- * Custom Google Spreadsheet UI Menu.
+ * Custom Google Spreadsheet UI Menu with CI/CD Webhook controls.
  */
 
 function onOpen() {
@@ -375,8 +517,76 @@ function onOpen() {
     .addItem("⏳ Run 5-Year Archival Now", "menuRunArchival")
     .addItem("⏰ Setup Weekly 5-Year Trigger", "installWeeklyArchivalTrigger")
     .addSeparator()
+    .addItem("🔑 Configure CI/CD Deploy Key", "menuConfigureDeployKey")
+    .addItem("📋 View GitHub CI/CD Info", "menuShowCicdInfo")
+    .addSeparator()
     .addItem("ℹ️ About Shongsar Engine", "showAboutDialog")
     .addToUi();
+}
+
+/**
+ * Allows the user to configure or change their CI/CD secret deploy key
+ * directly from the Google Sheets UI without needing Google Cloud console.
+ */
+function menuConfigureDeployKey() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var currentKey = props.getProperty("DEPLOY_KEY") || "";
+
+  var promptMessage = currentKey
+    ? "A Deploy Key is currently configured.\\n\\nEnter a new Deploy Key (or leave blank to keep current):"
+    : "Enter a secret passphrase for GitHub Actions CI/CD deployment:\\n(e.g., a strong password or random phrase)";
+
+  var response = ui.prompt("🔑 Configure CI/CD Deploy Key", promptMessage, ui.ButtonSet.OK_CANCEL);
+
+  if (response.getSelectedButton() === ui.Button.OK) {
+    var newKey = response.getResponseText().trim();
+    if (newKey) {
+      props.setProperty("DEPLOY_KEY", newKey);
+      ui.alert(
+        "✅ Deploy Key Saved!",
+        "Your secret Deploy Key has been saved to this Google Sheet.\\n\\n" +
+        "Now add this exact value as DEPLOY_KEY in your GitHub repository:\\n" +
+        "GitHub > Settings > Secrets and variables > Actions > New repository secret.",
+        ui.ButtonSet.OK
+      );
+    } else if (!currentKey) {
+      ui.alert("⚠️ Notice", "No key entered. Deployments via GitHub Actions will be rejected until a key is saved.", ui.ButtonSet.OK);
+    }
+  }
+}
+
+/**
+ * Displays all information needed to configure GitHub Actions Secrets.
+ */
+function menuShowCicdInfo() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var scriptId = ScriptApp.getScriptId();
+  var webAppUrl = ScriptApp.getService().getUrl() || "(Deploy as Web App first to get URL)";
+  var isKeyConfigured = !!props.getProperty("DEPLOY_KEY");
+
+  var html = '<div style="font-family:system-ui,-apple-system,sans-serif;padding:16px;color:#0f172a;line-height:1.5;">' +
+    '<h3 style="margin-top:0;color:#059669;display:flex;align-items:center;gap:8px;">🚀 GitHub CI/CD Configuration</h3>' +
+    '<p style="font-size:12px;color:#475569;">Copy these details into your <b>GitHub Repository Secrets</b> (Settings &gt; Secrets and variables &gt; Actions):</p>' +
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">1. WEBAPP_URL</div>' +
+    '<div style="font-family:monospace;font-size:11px;background:#ffffff;border:1px solid #cbd5e1;padding:6px;border-radius:4px;word-break:break-all;margin-top:4px;">' + webAppUrl + '</div>' +
+    '</div>' +
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">2. DEPLOY_KEY</div>' +
+    '<div style="font-size:12px;margin-top:4px;color:' + (isKeyConfigured ? '#16a34a' : '#dc2626') + ';font-weight:600;">' +
+    (isKeyConfigured ? '✅ Configured in this Spreadsheet' : '❌ Not set yet — Click "Configure CI/CD Deploy Key" to set') +
+    '</div>' +
+    '</div>' +
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">3. Script ID (Reference)</div>' +
+    '<div style="font-family:monospace;font-size:11px;background:#ffffff;border:1px solid #cbd5e1;padding:6px;border-radius:4px;word-break:break-all;margin-top:4px;">' + scriptId + '</div>' +
+    '</div>' +
+    '<p style="font-size:11px;color:#64748b;">No local Clasp login or CLASPRC_JSON is required! GitHub Actions will push updates via secure webhook.</p>' +
+    '</div>';
+
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(360), "GitHub CI/CD Info");
 }
 
 function openWebAppUrlDialog() {
@@ -1173,8 +1383,8 @@ const FRONTEND_SCRIPTS_HTML = `<!-- frontend/Scripts.html -->
 </script>
 `;
 
-// CI/CD & Clasp Configuration Templates
-export const GITHUB_DEPLOY_YML = `name: Deploy to Google Apps Script
+// CI/CD Configuration Templates (Zero-Token Webhook Pipeline)
+export const GITHUB_DEPLOY_YML = `name: Deploy to Google Apps Script (Webhook CI/CD)
 
 on:
   push:
@@ -1184,9 +1394,10 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to Google Apps Script Web App
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -1194,45 +1405,81 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Google Clasp CLI
-        run: sudo npm install -g @google/clasp
+      - name: Deploy Code to Apps Script Webhook
+        env:
+          WEBAPP_URL: \${{ secrets.WEBAPP_URL }}
+          DEPLOY_KEY: \${{ secrets.DEPLOY_KEY }}
+          DEPLOYMENT_ID: \${{ secrets.DEPLOYMENT_ID }}
+        run: node .github/scripts/deploy-webhook.cjs
+`;
 
-      - name: Create Clasp Authentication Credentials
-        run: |
-          mkdir -p ~/.clasprc.json
-          rm -rf ~/.clasprc.json
-          echo '\${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
-          chmod 600 ~/.clasprc.json
+export const GITHUB_DEPLOY_WEBHOOK_SCRIPT = `#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
 
-      - name: Configure .clasp.json
-        run: |
-          cat <<EOF > .clasp.json
-          {
-            "scriptId": "\${{ secrets.SCRIPT_ID }}",
-            "rootDir": "."
-          }
-          EOF
+const webAppUrl = process.env.WEBAPP_URL;
+const deployKey = process.env.DEPLOY_KEY;
+const deploymentId = process.env.DEPLOYMENT_ID || '';
+const commitSha = process.env.GITHUB_SHA || '';
 
-      - name: Push Code to Apps Script
-        run: clasp push --force
+if (!webAppUrl) {
+  console.error('❌ ERROR: WEBAPP_URL secret is not set in GitHub Repository Secrets.');
+  process.exit(1);
+}
 
-      - name: Create Version Tag
-        id: create_version
-        run: |
-          VERSION_OUTPUT=$(clasp version "Automated release: \${GITHUB_SHA::7}")
-          echo "$VERSION_OUTPUT"
-          VERSION_NUM=$(echo "$VERSION_OUTPUT" | grep -oE '[0-9]+' | tail -1)
-          echo "VERSION_NUM=$VERSION_NUM" >> $GITHUB_ENV
+if (!deployKey) {
+  console.error('❌ ERROR: DEPLOY_KEY secret is not set in GitHub Repository Secrets.');
+  process.exit(1);
+}
 
-      - name: Deploy Web App (Production Release)
-        run: |
-          if [ -n "\${{ secrets.DEPLOYMENT_ID }}" ]; then
-            echo "Updating existing deployment: \${{ secrets.DEPLOYMENT_ID }}"
-            clasp deploy --deploymentId "\${{ secrets.DEPLOYMENT_ID }}" --versionNumber "$VERSION_NUM" --description "Release \${GITHUB_SHA::7}"
-          else
-            echo "Publishing new deployment..."
-            clasp deploy --versionNumber "$VERSION_NUM" --description "Release \${GITHUB_SHA::7}"
-          fi
+const rootDir = path.resolve(__dirname, '../../');
+const files = [];
+
+const manifestPath = path.join(rootDir, 'appsscript.json');
+if (fs.existsSync(manifestPath)) {
+  files.push({ name: 'appsscript', type: 'JSON', source: fs.readFileSync(manifestPath, 'utf8') });
+}
+
+const backendDir = path.join(rootDir, 'backend');
+if (fs.existsSync(backendDir)) {
+  fs.readdirSync(backendDir).filter(f => f.endsWith('.gs')).forEach(f => {
+    files.push({ name: 'backend/' + f.replace(/\\.gs$/, ''), type: 'SERVER_JS', source: fs.readFileSync(path.join(backendDir, f), 'utf8') });
+  });
+}
+
+const frontendDir = path.join(rootDir, 'frontend');
+if (fs.existsSync(frontendDir)) {
+  fs.readdirSync(frontendDir).filter(f => f.endsWith('.html')).forEach(f => {
+    files.push({ name: 'frontend/' + f.replace(/\\.html$/, ''), type: 'HTML', source: fs.readFileSync(path.join(frontendDir, f), 'utf8') });
+  });
+}
+
+console.log('Sending ' + files.length + ' files to Apps Script Webhook...');
+
+fetch(webAppUrl, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'DEPLOY_FILES',
+    deployKey: deployKey,
+    deploymentId: deploymentId,
+    commitSha: commitSha,
+    description: commitSha ? 'Release ' + commitSha.substring(0, 7) : 'Webhook release',
+    createVersion: true,
+    files: files
+  }),
+  redirect: 'follow'
+}).then(r => r.json()).then(res => {
+  if (res.success) {
+    console.log('✅ Successfully deployed ' + (res.filesUpdatedCount || files.length) + ' files to Google Apps Script!');
+  } else {
+    console.error('❌ Deployment error:', res.error);
+    process.exit(1);
+  }
+}).catch(err => {
+  console.error('❌ Network error:', err.message);
+  process.exit(1);
+});
 `;
 
 export const CLASP_IGNORE_CONTENT = `**/**
@@ -1246,6 +1493,12 @@ export const APPSSCRIPT_JSON_CONTENT = `{
   "dependencies": {},
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/script.projects",
+    "https://www.googleapis.com/auth/script.deployments",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
   "webapp": {
     "executeAs": "USER_DEPLOYING",
     "access": "ANYONE"
@@ -1265,8 +1518,16 @@ export const APPS_SCRIPT_PROJECT_FILES: AppsScriptFile[] = [
     filename: 'deploy.yml',
     folder: 'ci_cd',
     type: 'yml',
-    description: 'GitHub Actions workflow: automated push, versioning, and deployment',
+    description: 'GitHub Actions workflow: automated push, versioning, and deployment via webhook',
     content: GITHUB_DEPLOY_YML,
+  },
+  {
+    path: '.github/scripts/deploy-webhook.cjs',
+    filename: 'deploy-webhook.cjs',
+    folder: 'ci_cd',
+    type: 'gs',
+    description: 'Zero-token webhook deployer script that packages and POSTs source files to Apps Script',
+    content: GITHUB_DEPLOY_WEBHOOK_SCRIPT,
   },
   {
     path: '.claspignore',
@@ -1297,7 +1558,7 @@ export const APPS_SCRIPT_PROJECT_FILES: AppsScriptFile[] = [
     filename: 'WebApp.gs',
     folder: 'backend',
     type: 'gs',
-    description: 'Serves the Web App via HtmlService and handles client RPC calls',
+    description: 'Serves the Web App via HtmlService, client RPC calls, and zero-token CI/CD webhook',
     content: BACKEND_WEB_APP_GS,
   },
   {
@@ -1329,7 +1590,7 @@ export const APPS_SCRIPT_PROJECT_FILES: AppsScriptFile[] = [
     filename: 'Menu.gs',
     folder: 'backend',
     type: 'gs',
-    description: 'Custom Google Spreadsheet UI Menu for one-click actions',
+    description: 'Custom Google Spreadsheet UI Menu with CI/CD deploy key setup dialogs',
     content: BACKEND_MENU_GS,
   },
   {
@@ -1368,14 +1629,19 @@ export async function downloadProjectAsZip(): Promise<void> {
   const frontendFolder = zip.folder('frontend');
   const githubFolder = zip.folder('.github');
   const workflowsFolder = githubFolder ? githubFolder.folder('workflows') : null;
+  const scriptsFolder = githubFolder ? githubFolder.folder('scripts') : null;
 
   for (const file of APPS_SCRIPT_PROJECT_FILES) {
     if (file.folder === 'backend' && backendFolder) {
       backendFolder.file(file.filename, file.content);
     } else if (file.folder === 'frontend' && frontendFolder) {
       frontendFolder.file(file.filename, file.content);
-    } else if (file.folder === 'ci_cd' && workflowsFolder) {
-      workflowsFolder.file(file.filename, file.content);
+    } else if (file.folder === 'ci_cd') {
+      if (file.filename.endsWith('.cjs') || file.filename.endsWith('.js')) {
+        if (scriptsFolder) scriptsFolder.file(file.filename, file.content);
+      } else if (workflowsFolder) {
+        workflowsFolder.file(file.filename, file.content);
+      }
     } else {
       zip.file(file.filename, file.content);
     }
@@ -1384,55 +1650,42 @@ export async function downloadProjectAsZip(): Promise<void> {
   // Also include a comprehensive open-source README.md
   const readmeContent = `# Shongsar (সংসার) — Family Wealth Manager & Ledger Engine
 
-A 100% free, privacy-first family budget and wealth management platform backed by Google Sheets as a database, hosted on Google Apps Script, and synchronized via GitHub CI/CD.
+A 100% free, privacy-first family budget and wealth management platform backed by Google Sheets as a database, hosted on Google Apps Script, and synchronized via GitHub CI/CD with zero tokens.
 
 ## Repository Architecture
-- \`.github/workflows/deploy.yml\`: Automated GitHub Actions deployment pipeline
+- \`.github/workflows/deploy.yml\`: Automated GitHub Actions webhook deployment pipeline
+- \`.github/scripts/deploy-webhook.cjs\`: Zero-clasp file packager and webhook dispatcher
 - \`appsscript.json\`: Apps Script project manifest
-- \`.claspignore\`: Whitelist of files pushed to Google Apps Script
 - \`backend/\`: Modular server-side Apps Script code
-  - \`WebApp.gs\`: Serves the web app UI & handles client RPC
+  - \`WebApp.gs\`: Serves Web App UI, client RPC, and incoming webhook deployer
   - \`Database.gs\`: Table schemas, seed defaults, and row operations
   - \`DoubleEntry.gs\`: Double-entry balance propagation engine
   - \`Lifecycle.gs\`: 5-year rolling data retention & weekly triggers
-  - \`Menu.gs\`: Spreadsheet custom menu
+  - \`Menu.gs\`: Spreadsheet custom menu & CI/CD deploy key setup
 - \`frontend/\`: Client-side single-page web app
   - \`Index.html\`: HTML layout, dashboard grids & modals
   - \`Styles.html\`: Tailwind CSS & typography
   - \`Scripts.html\`: Reactive state & google.script.run bridge
 
-## CI/CD Setup for Your Fork (5 Minutes):
+## Zero-Token CI/CD Setup (2 Minutes):
 
-### 1. Enable Google Apps Script API
-1. Visit https://script.google.com/home/usersettings
-2. Toggle **Google Apps Script API** to **ON**.
+### 1. Set Deploy Key in Google Sheets
+1. Open your Google Sheet.
+2. In the top menu, click **🌿 Shongsar (সংসার)** > **🔑 Configure CI/CD Deploy Key**.
+3. Enter any secret passphrase of your choice and click OK.
+4. Click **🌿 Shongsar (সংসার)** > **📋 View GitHub CI/CD Info** to see your Web App URL.
 
-### 2. Generate Your Authentication Token (CLASPRC_JSON)
-Run locally in your terminal:
-\`\`\`bash
-npx @google/clasp login
-\`\`\`
-Sign in with your Google account. Clasp will save credentials to \`~/.clasprc.json\`.
-Open that file and copy its full JSON contents.
+### 2. Configure GitHub Repository Secrets
+In your GitHub repository, go to **Settings** > **Secrets and variables** > **Actions** and add 2 secrets:
+- \`WEBAPP_URL\`: Your Web App deployment URL.
+- \`DEPLOY_KEY\`: The exact secret passphrase you entered in step 1.
 
-### 3. Get Your SCRIPT_ID
-1. Open your \`shongsar\` Google Spreadsheet.
-2. Click **Extensions** > **Apps Script**.
-3. In Apps Script, click the **Settings** gear icon (Project Settings).
-4. Copy the **Script ID** (e.g., \`1a2b3c4d5e...\`).
-
-### 4. Configure GitHub Repository Secrets
-In your GitHub repository (or fork), go to **Settings** > **Secrets and variables** > **Actions** and add:
-- \`SCRIPT_ID\`: Your Script ID from step 3.
-- \`CLASPRC_JSON\`: The JSON content of \`~/.clasprc.json\` from step 2.
-
-### 5. Push & Deploy!
+### 3. Push & Deploy!
 Every \`git push origin main\` will now automatically:
-1. Push all \`backend/\` and \`frontend/\` code to Google Apps Script.
-2. Increment the project version.
-3. Update the live production Web App!
-
-To deploy manually, click **Actions** > **Deploy to Google Apps Script** > **Run workflow**.
+1. Read and package all \`backend/\` and \`frontend/\` files.
+2. Send an authenticated HTTPS webhook to your Google Apps Script project.
+3. Automatically update project files and mint an immutable release version!
+No local Clasp login or CLASPRC_JSON is ever required!
 `;
   zip.file('README.md', readmeContent);
 

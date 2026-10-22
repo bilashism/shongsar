@@ -1,6 +1,6 @@
 /**
  * @file backend/Menu.gs
- * Custom Google Spreadsheet UI Menu.
+ * Custom Google Spreadsheet UI Menu with CI/CD Webhook controls.
  */
 
 function onOpen() {
@@ -11,8 +11,80 @@ function onOpen() {
     .addItem("⏳ Run 5-Year Archival Now", "menuRunArchival")
     .addItem("⏰ Setup Weekly 5-Year Trigger", "installWeeklyArchivalTrigger")
     .addSeparator()
+    .addItem("🔑 Configure CI/CD Deploy Key", "menuConfigureDeployKey")
+    .addItem("📋 View GitHub CI/CD Info", "menuShowCicdInfo")
+    .addSeparator()
     .addItem("ℹ️ About Shongsar Engine", "showAboutDialog")
     .addToUi();
+}
+
+/**
+ * Allows the user to configure or change their CI/CD secret deploy key
+ * directly from the Google Sheets UI without needing Google Cloud console.
+ */
+function menuConfigureDeployKey() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var currentKey = props.getProperty("DEPLOY_KEY") || "";
+
+  var promptMessage = currentKey
+    ? "A Deploy Key is currently configured.\n\nEnter a new Deploy Key (or leave blank to keep current):"
+    : "Enter a secret passphrase for GitHub Actions CI/CD deployment:\n(e.g., a strong password or random phrase)";
+
+  var response = ui.prompt("🔑 Configure CI/CD Deploy Key", promptMessage, ui.ButtonSet.OK_CANCEL);
+
+  if (response.getSelectedButton() === ui.Button.OK) {
+    var newKey = response.getResponseText().trim();
+    if (newKey) {
+      props.setProperty("DEPLOY_KEY", newKey);
+      ui.alert(
+        "✅ Deploy Key Saved!",
+        "Your secret Deploy Key has been saved to this Google Sheet.\n\n" +
+        "Now add this exact value as DEPLOY_KEY in your GitHub repository:\n" +
+        "GitHub > Settings > Secrets and variables > Actions > New repository secret.",
+        ui.ButtonSet.OK
+      );
+    } else if (!currentKey) {
+      ui.alert("⚠️ Notice", "No key entered. Deployments via GitHub Actions will be rejected until a key is saved.", ui.ButtonSet.OK);
+    }
+  }
+}
+
+/**
+ * Displays all information needed to configure GitHub Actions Secrets.
+ */
+function menuShowCicdInfo() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var scriptId = ScriptApp.getScriptId();
+  var webAppUrl = ScriptApp.getService().getUrl() || "(Deploy as Web App first to get URL)";
+  var isKeyConfigured = !!props.getProperty("DEPLOY_KEY");
+
+  var html = '<div style="font-family:system-ui,-apple-system,sans-serif;padding:16px;color:#0f172a;line-height:1.5;">' +
+    '<h3 style="margin-top:0;color:#059669;display:flex;align-items:center;gap:8px;">🚀 GitHub CI/CD Configuration</h3>' +
+    '<p style="font-size:12px;color:#475569;">Copy these details into your <b>GitHub Repository Secrets</b> (Settings &gt; Secrets and variables &gt; Actions):</p>' +
+    
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">1. WEBAPP_URL</div>' +
+    '<div style="font-family:monospace;font-size:11px;background:#ffffff;border:1px solid #cbd5e1;padding:6px;border-radius:4px;word-break:break-all;margin-top:4px;">' + webAppUrl + '</div>' +
+    '</div>' +
+
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">2. DEPLOY_KEY</div>' +
+    '<div style="font-size:12px;margin-top:4px;color:' + (isKeyConfigured ? '#16a34a' : '#dc2626') + ';font-weight:600;">' +
+    (isKeyConfigured ? '✅ Configured in this Spreadsheet' : '❌ Not set yet — Click "Configure CI/CD Deploy Key" to set') +
+    '</div>' +
+    '</div>' +
+
+    '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;">3. Script ID (Reference)</div>' +
+    '<div style="font-family:monospace;font-size:11px;background:#ffffff;border:1px solid #cbd5e1;padding:6px;border-radius:4px;word-break:break-all;margin-top:4px;">' + scriptId + '</div>' +
+    '</div>' +
+
+    '<p style="font-size:11px;color:#64748b;">No local Clasp login or CLASPRC_JSON is required! GitHub Actions will push updates via secure webhook.</p>' +
+    '</div>';
+
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(360), "GitHub CI/CD Info");
 }
 
 function openWebAppUrlDialog() {

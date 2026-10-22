@@ -5,17 +5,17 @@
 [![Google Apps Script](https://img.shields.io/badge/Google%20Apps%20Script-4285F4?logo=google&logoColor=white)](https://developers.google.com/apps-script)
 [![Google Sheets](https://img.shields.io/badge/Google%20Sheets-34A853?logo=googlesheets&logoColor=white)](https://sheets.google.com)
 
-**Shongsar** is a modern, high-performance personal finance, family budget planning, and wealth management platform. It uses **Google Sheets** as a free, resilient double-entry database, runs on **Google Apps Script** as a serverless web app, and features automated, zero-secret continuous deployment via **GitHub Actions** and **Google Clasp CLI**.
+**Shongsar** is a personal finance, family budget planning, and wealth management platform. It uses **Google Sheets** as a free double-entry relational database, runs on **Google Apps Script** as a serverless web app, and features automated, **zero-token continuous deployment via GitHub Actions Webhooks**.
 
 ---
 
 ## 🌟 Key Highlights
 
-- **100% Free & Serverless**: Zero hosting costs. The database lives in your personal Google Spreadsheet, and the application is hosted by Google Apps Script.
-- **Double-Entry Accounting Engine**: Strict financial integrity with automated debits, credits, account transfers, categories, and monthly rollups.
-- **Unified Deep Dark Slate UI**: High-contrast, responsive dashboard matching across local previews and deployed Apps Script environments.
-- **Zero-Secret Security Architecture**: No passwords, tokens, or credentials are hardcoded or tracked in git. Everything authenticates headlessly via GitHub Encrypted Secrets.
-- **Automated CI/CD**: Pushing code to `main` automatically uploads code, creates an immutable version release, and deploys to your live Web App URL.
+- **100% Free & Serverless**: Zero hosting fees. Your personal Google Spreadsheet is the database, and Google Apps Script serves the web app.
+- **Zero-Token CI/CD (No `CLASPRC_JSON`)**: No need to install Clasp CLI locally, sign into a terminal, or copy messy OAuth refresh tokens that expire after 7 days. Continuous deployment happens through an authenticated HTTPS webhook.
+- **Double-Entry Accounting Engine**: Strict financial integrity with automated debits, credits, transfers, category budgeting, and 5-year rolling archival.
+- **Unified Deep Dark Slate UI**: Consistent dark mode interface across the React development preview and the production Google Apps Script deployment.
+- **Automated Deployments**: Pushing code to `main` instantly uploads all backend and frontend changes to Google Apps Script and creates a new release version.
 
 ---
 
@@ -23,212 +23,151 @@
 
 ```
 ├── .github/
+│   ├── scripts/
+│   │   └── deploy-webhook.cjs # Packages and POSTs files to Apps Script
 │   └── workflows/
-│       └── deploy.yml        # Automated CI/CD pipeline for Google Apps Script
-├── backend/                  # Google Apps Script server-side code
-│   ├── Database.gs           # Google Sheets double-entry schema & storage engine
-│   ├── DoubleEntry.gs        # Accounting balance validations & journal entries
-│   ├── Lifecycle.gs          # Database initialization & sample data migration
-│   ├── Menu.gs               # Custom menu integration within the Google Spreadsheet
-│   └── WebApp.gs             # doGet() entry point & client-server RPC endpoints
-├── frontend/                 # Google Apps Script web frontend templates
-│   ├── Index.html            # Main HTML layout and structural view
-│   ├── Styles.html           # Tailwind-inspired Deep Dark Slate stylesheets
-│   └── Scripts.html          # Client-side reactivity & google.script.run bridge
-├── src/                      # React SPA development & AI Studio live preview
-├── appsscript.json           # Google Apps Script project manifest
-├── .clasp.json.example       # Example Clasp configuration
-├── .claspignore              # Prevents non-Apps-Script files from uploading
-├── .gitignore                # Excludes secrets, credentials, and local build files
-└── README.md                 # Complete setup and deployment documentation
+│       └── deploy.yml         # GitHub Actions workflow (runs on push to main)
+├── backend/                   # Google Apps Script server-side code
+│   ├── Database.gs            # Google Sheets double-entry schema & storage engine
+│   ├── DoubleEntry.gs         # Balance recalculation and fund transfers
+│   ├── Lifecycle.gs           # 5-year rolling data retention and cleanup
+│   ├── Menu.gs                # Custom spreadsheet menu & CI/CD deploy key setup
+│   └── WebApp.gs              # doGet() UI server & doPost() webhook deployer
+├── frontend/                  # Google Apps Script web frontend templates
+│   ├── Index.html             # HTML layout, dashboard grids, and modals
+│   ├── Styles.html            # Deep Dark Slate stylesheets & typography
+│   └── Scripts.html           # Client-side reactivity & google.script.run bridge
+├── src/                       # React SPA development & AI Studio live preview
+├── appsscript.json            # Apps Script manifest with script.projects API scope
+├── .gitignore                 # Excludes local artifacts and environment secrets
+└── README.md                  # Complete setup and deployment documentation
 ```
 
 ---
 
-## 🔒 Zero-Secret Security Model
+## 🚀 2-Minute CI/CD Setup (Zero `CLASPRC_JSON`)
 
-Security and privacy are built into this repository by design:
-1. **No Hardcoded Secrets**: All configuration files containing sensitive credentials (`.clasprc.json`, `.clasp.json`, `firebase-applet-config.json`, `.env*`) are explicitly listed in `.gitignore` and never committed.
-2. **Strict Clasp Whitelist**: The `.claspignore` file excludes all repository contents by default (`**/**`) and whitelists only the production files required by Apps Script (`backend/**`, `frontend/**`, and `appsscript.json`). Development dependencies, node modules, and git histories are never uploaded.
-3. **Encrypted Pipeline Execution**: Deployment credentials live exclusively in GitHub Secrets and are injected into an ephemeral runner at deploy time with restricted file permissions (`chmod 600`).
+You do **not** need to install Google Clasp or copy OAuth credentials into GitHub. Continuous deployment works automatically via a secure webhook endpoint built into your deployed Apps Script web app.
 
----
-
-## 🚀 Setup & Continuous Deployment (CI/CD)
-
-Follow these steps to link your Google Spreadsheet with GitHub Actions and enable automatic deployments.
-
-### Prerequisites
-
-1. A **Google Account** with access to Google Drive and Google Sheets.
-2. **Node.js 18+** installed locally on your machine (needed once to generate Clasp login tokens).
-3. A fork or clone of this repository on **GitHub**.
-
----
-
-### Step 1: Enable the Google Apps Script API
-
-Google requires you to enable API access in your user account before Clasp can push code:
-
-1. Open your browser and navigate to: **[Google Apps Script User Settings](https://script.google.com/home/usersettings)**
-2. Find the toggle labeled **Google Apps Script API**.
-3. Switch it to **ON**.
-
-*(If this is not enabled, Clasp commands will fail with a `Google Apps Script API has not been used` error).*
-
----
-
-### Step 2: Create or Connect Your Google Sheet
-
-1. Create a new Google Spreadsheet at [sheets.new](https://sheets.new) (or open your existing budget sheet).
-2. Click **Extensions** in the top menu -> **Apps Script**.
-3. In the Apps Script project that opens:
-   - Click the **Project Settings** icon (gear ⚙️ on the left sidebar).
-   - Locate the **Script ID** (a string of ~57 alphanumeric characters, e.g., `1a2b3c4d5e6f7g8h9i0j...`).
-   - **Copy your Script ID** — you will use this as `SCRIPT_ID` in Step 4.
-
----
-
-### Step 3: Generate Clasp Credentials Locally
-
-Google Clasp requires an OAuth token to deploy headlessly on your behalf. Generate this once from your computer:
-
-1. Open your local terminal and run:
-   ```bash
-   npx @google/clasp login
-   ```
-2. Your browser will open asking you to sign in with your Google account. Authorize the Google Clasp CLI.
-3. Once logged in, Clasp saves your authentication tokens in your user home directory at `~/.clasprc.json`.
-4. Display and copy the contents of this file:
-
-   - **macOS / Linux**:
-     ```bash
-     cat ~/.clasprc.json
-     ```
-   - **Windows (PowerShell)**:
-     ```powershell
-     Get-Content ~\.clasprc.json
-     ```
-
-The output will look like this JSON structure:
-```json
-{
-  "token": {
-    "access_token": "ya29...",
-    "refresh_token": "1//0...",
-    "scope": "https://www.googleapis.com/auth/script.projects ...",
-    "token_type": "Bearer",
-    "expiry_date": 1700000000000
-  },
-  "oauth2ClientSettings": {
-    "clientId": "...",
-    "clientSecret": "...",
-    "redirectUri": "http://localhost"
-  },
-  "isLocalCreds": false
-}
 ```
-> **Important**: Keep this token secure! Never share it publicly or commit it to your repository.
+┌─────────────────────────────────┐
+│     GitHub Actions (Push)       │
+│  1. Reads backend/ & frontend/  │
+│  2. Packages files into JSON    │
+│  3. POSTs to Web App URL        │
+└────────────────┬────────────────┘
+                 │ HTTPS POST with DEPLOY_KEY
+                 ▼
+┌─────────────────────────────────┐
+│ Google Apps Script (doPost)     │
+│  1. Verifies DEPLOY_KEY         │
+│  2. Calls script.googleapis.com │
+│     using internal              │
+│     ScriptApp.getOAuthToken()   │
+│  3. Overwrites project files    │
+│     and creates new deployment  │
+└─────────────────────────────────┘
+```
 
 ---
 
-### Step 4: Create Initial Web App Deployment (Recommended)
+### Step 1: Deploy Web App in Google Apps Script
 
-Creating an initial deployment allows the CI/CD pipeline to continuously update the **same URL** on every release rather than generating a new URL each time:
-
-1. In the Google Apps Script editor for your project, click **Deploy** (top right) -> **New deployment**.
-2. Click the gear icon ⚙️ next to "Select type" and choose **Web app**.
-3. Configure settings:
-   - **Description**: `Production Web App`
+1. Open your Google Spreadsheet (e.g., at [sheets.new](https://sheets.new)).
+2. Go to **Extensions** > **Apps Script**.
+3. Copy the project files from `backend/`, `frontend/`, and `appsscript.json` (or import this repository).
+4. In the top right of the Apps Script editor, click **Deploy** > **New deployment**.
+5. Click the gear icon ⚙️ next to "Select type" and select **Web app**.
+6. Set:
    - **Execute as**: `Me (your-email@gmail.com)`
-   - **Who has access**: `Anyone` (or `Only myself` based on your preference)
-4. Click **Deploy**.
-5. Copy the **Deployment ID** (e.g., `AKfycby...`) and save your **Web app URL**.
+   - **Who has access**: `Anyone`
+7. Click **Deploy** and authorize the permissions.
+8. Copy the generated **Web app URL** (e.g., `https://script.google.com/macros/s/AKfyc.../exec`).
 
 ---
 
-### Step 5: Configure GitHub Encrypted Secrets
+### Step 2: Configure Your `DEPLOY_KEY` in Google Sheets
 
-1. In your GitHub repository, navigate to:
-   **Settings** -> **Secrets and variables** -> **Actions**.
-2. Click **New repository secret** and add the following three secrets:
-
-| Secret Name | Required | Description | Example / Where to find |
-| :--- | :--- | :--- | :--- |
-| `SCRIPT_ID` | **Yes** | Your Google Apps Script project ID | Apps Script Editor -> Project Settings (⚙️) -> Script ID |
-| `CLASPRC_JSON` | **Yes** | Full JSON content of `~/.clasprc.json` | Generated in Step 3 via `npx @google/clasp login` |
-| `DEPLOYMENT_ID` | **Recommended** | Web app deployment ID to update | Obtained from Step 4 under Deployments |
-
-> **Note**: If `DEPLOYMENT_ID` is omitted, the workflow will publish a new deployment on each push instead of updating the existing URL. Setting `DEPLOYMENT_ID` ensures your bookmarks and mobile home screen shortcuts remain constant.
+1. Return to your Google Spreadsheet and refresh the tab.
+2. In the top menu, click **🌿 Shongsar (সংসার)** > **🔑 Configure CI/CD Deploy Key**.
+3. Enter any secret passphrase you choose (e.g., `shongsar_secret_2026_xyz`).
+4. Click **OK**. Your key is saved privately inside your Google Sheet's Script Properties.
+5. *(Optional)* Click **🌿 Shongsar (সংসার)** > **📋 View GitHub CI/CD Info** to review your configured URL and status.
 
 ---
 
-### Step 6: Verify Automatic Deployments
+### Step 3: Add Secrets to GitHub
 
-1. Push any commit to the `main` branch:
-   ```bash
-   git add .
-   git commit -m "feat: setup continuous deployment"
-   git push origin main
-   ```
-2. Navigate to the **Actions** tab in your GitHub repository.
-3. You will see the **Deploy to Google Apps Script** workflow running:
-   - ✅ Checks out code
-   - ✅ Sets up Node.js 20 & installs `@google/clasp`
-   - ✅ Writes credentials with secure `0600` permissions
-   - ✅ Executes `clasp push --force`
-   - ✅ Generates an immutable version tag (e.g., `Automated release: 7a8b9c0`)
-   - ✅ Deploys to your production `DEPLOYMENT_ID`
-4. Open your Apps Script Web App URL to see your changes live!
+In your GitHub repository (or fork):
 
-You can also trigger a manual deployment anytime from GitHub under **Actions** -> **Deploy to Google Apps Script** -> **Run workflow**.
+1. Go to **Settings** > **Secrets and variables** > **Actions**.
+2. Click **New repository secret** and add the following 2 secrets:
+
+| Secret Name | Required | Value |
+| :--- | :--- | :--- |
+| `WEBAPP_URL` | **Yes** | Your Web App URL (`https://script.google.com/macros/s/.../exec`) |
+| `DEPLOY_KEY` | **Yes** | The exact secret passphrase you entered in Step 2 |
+| `DEPLOYMENT_ID` | *Optional* | Your Web App deployment ID (keeps the exact same production URL on updates) |
+
+---
+
+### Step 4: Push & Watch It Deploy!
+
+Whenever you push to the `main` branch:
+
+```bash
+git add .
+git commit -m "feat: update budget dashboard"
+git push origin main
+```
+
+1. GitHub Actions runs `.github/scripts/deploy-webhook.cjs`.
+2. All `backend/*.gs`, `frontend/*.html`, and `appsscript.json` files are packaged and sent to your Apps Script Web App.
+3. The Web App uses its built-in `ScriptApp.getOAuthToken()` with the `script.projects` scope to update the script project and publish a new version.
+4. Your live Google Spreadsheet Web App is updated within seconds!
+
+To deploy manually without pushing code, go to **Actions** in GitHub > **Deploy to Google Apps Script** > **Run workflow**.
+
+---
+
+## 🔒 Security Architecture
+
+1. **Zero OAuth Token Management**: Because Google Apps Script executes with the owner's authorization ("Execute as: Me"), the script generates its own temporary OAuth Bearer token internally when updating its project files. No Google OAuth refresh tokens or private keys ever leave Google servers.
+2. **Secret Key Verification**: All incoming deployment webhooks are verified against the `DEPLOY_KEY` saved in Google Apps Script `PropertiesService.getScriptProperties()`. Any request with an incorrect or missing key is rejected immediately.
+3. **No Secrets in Git**: Your `DEPLOY_KEY` and `WEBAPP_URL` live strictly in GitHub Encrypted Secrets and your private Google Sheet.
 
 ---
 
 ## 💻 Local React Development & Preview
 
-This repository also contains a local React + Vite development environment with the exact same Deep Dark Slate design language:
+This repository also contains a Vite + React SPA that mimics the deployed Apps Script interface for local development and AI Studio previews:
 
 ```bash
 # Install dependencies
 npm install
 
-# Start local development server
+# Run local development server (port 3000)
 npm run dev
 
-# Verify TypeScript compilation and production build
+# Run TypeScript check and production build
 npm run build
 ```
 
 ---
 
-## 🛠️ Spreadsheet Initialization & First Run
+## ❓ Frequently Asked Questions (FAQ)
 
-Once the code is pushed to your Google Apps Script project:
+#### 1. Why is this better than Clasp and `CLASPRC_JSON`?
+Google Clasp requires running `npx @google/clasp login` locally, extracting a JSON blob from `~/.clasprc.json`, and saving it to GitHub. If the Google Cloud project is in testing mode, Google automatically expires the refresh token after 7 days, breaking CI/CD. The webhook approach never expires because Google Apps Script generates a fresh access token on the fly.
 
-1. Open your linked Google Spreadsheet.
-2. Refresh the page. You will see a custom menu appear in the top bar: **🏛️ Shongsar**.
-3. Click **🏛️ Shongsar** -> **Initialize / Reset Database**.
-4. Grant the initial Google authorization prompt if requested.
-5. The script will automatically format and create the required sheets:
-   - `Accounts`: Assets, Liabilities, Incomes, and Expenses.
-   - `Transactions`: General double-entry journal entries.
-   - `Categories`: Budget tracking categories and target allocations.
-   - `Settings`: User preferences and currency configurations.
-6. Open your Web App deployment URL to manage your budget and family finances with real-time sync.
+#### 2. What if I get an "Unauthorized: Invalid DEPLOY_KEY" error?
+Make sure the value in your GitHub repository secret `DEPLOY_KEY` exactly matches the value you entered in your Google Sheet under **🌿 Shongsar (সংসার)** > **🔑 Configure CI/CD Deploy Key**.
 
----
-
-## ❓ Troubleshooting & FAQs
-
-#### Error: `User has not enabled the Apps Script API`
-- Visit [https://script.google.com/home/usersettings](https://script.google.com/home/usersettings) and ensure the **Google Apps Script API** toggle is set to **ON** for the account that owns the script.
-
-#### Error: `clasp push fails with 401 Unauthorized`
-- Your Clasp refresh token may have expired or been revoked. Re-run `npx @google/clasp login` locally, copy the new contents of `~/.clasprc.json`, and update the `CLASPRC_JSON` secret in GitHub.
-
-#### My changes deploy but the live URL still shows the old version
-- Ensure `DEPLOYMENT_ID` is correctly set in your GitHub Repository Secrets. The workflow uses this ID to re-point the active deployment to the newly minted version number.
+#### 3. How do other contributors or forkers use this?
+When someone forks your repository, they only need to:
+1. Deploy their own copy of the Web App from their Google Sheet.
+2. Set their own `DEPLOY_KEY` in their spreadsheet.
+3. Add `WEBAPP_URL` and `DEPLOY_KEY` to their GitHub fork's secrets.
 
 ---
 

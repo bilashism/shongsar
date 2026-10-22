@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import {
   GITHUB_DEPLOY_YML,
+  GITHUB_DEPLOY_WEBHOOK_SCRIPT,
   CLASP_IGNORE_CONTENT,
   APPSSCRIPT_JSON_CONTENT,
   CLASP_JSON_EXAMPLE,
@@ -36,7 +37,7 @@ interface GitHubCicdModalProps {
 
 export const GitHubCicdModal: React.FC<GitHubCicdModalProps> = ({ isOpen, onClose }) => {
   const { sheetMetadata } = useFinance();
-  const [selectedTab, setSelectedTab] = useState<'workflow' | 'clasp' | 'manifest' | 'readme'>('workflow');
+  const [selectedTab, setSelectedTab] = useState<'workflow' | 'script' | 'manifest' | 'readme'>('workflow');
   const [copied, setCopied] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
 
@@ -46,8 +47,8 @@ export const GitHubCicdModal: React.FC<GitHubCicdModalProps> = ({ isOpen, onClos
     switch (selectedTab) {
       case 'workflow':
         return GITHUB_DEPLOY_YML;
-      case 'clasp':
-        return CLASP_IGNORE_CONTENT;
+      case 'script':
+        return GITHUB_DEPLOY_WEBHOOK_SCRIPT;
       case 'manifest':
         return APPSSCRIPT_JSON_CONTENT;
       case 'readme':
@@ -160,41 +161,41 @@ export const GitHubCicdModal: React.FC<GitHubCicdModalProps> = ({ isOpen, onClos
           </div>
         </div>
 
-        {/* 3-Step Secret Setup Instructions */}
+        {/* 2-Step Secret Setup Instructions (Zero Clasp / Zero Token) */}
         <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-100 dark:border-emerald-900/40 text-xs text-slate-800 dark:text-slate-200">
           <div className="flex items-center gap-1.5 font-bold text-emerald-900 dark:text-emerald-300 mb-2">
             <Key className="w-4 h-4 text-emerald-600" />
-            <span>Setup Secrets on GitHub (Required only once):</span>
+            <span>Setup Secrets on GitHub (Zero CLASPRC_JSON / Zero Tokens):</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-emerald-200/50 dark:border-emerald-800/50 shadow-2xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">1. SCRIPT_ID</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">1. WEBAPP_URL</span>
                 <span className="text-[10px] text-slate-400">Secret</span>
               </div>
               <p className="text-slate-600 dark:text-slate-400 leading-snug">
-                Open your Google Sheet → <b>Extensions &gt; Apps Script</b> → click Project Settings gear → copy <b>Script ID</b>.
+                Your Apps Script Web App URL (<code className="font-mono">https://script.google.com/macros/s/.../exec</code>). View it via Google Sheet menu: <b>🌿 Shongsar &gt; 📋 View GitHub CI/CD Info</b>.
               </p>
             </div>
 
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-emerald-200/50 dark:border-emerald-800/50 shadow-2xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">2. CLASPRC_JSON</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">2. DEPLOY_KEY</span>
                 <span className="text-[10px] text-slate-400">Secret</span>
               </div>
               <p className="text-slate-600 dark:text-slate-400 leading-snug">
-                Run <code className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded">npx @google/clasp login</code> locally. Copy the generated token in <code className="font-mono">~/.clasprc.json</code>.
+                Any secret passphrase you create. Set it in Google Sheets: <b>🌿 Shongsar &gt; 🔑 Configure CI/CD Deploy Key</b>. Add the exact same value in GitHub Secrets!
               </p>
             </div>
 
             <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-emerald-200/50 dark:border-emerald-800/50 shadow-2xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">3. Enable API</span>
-                <span className="text-[10px] text-slate-400">Setting</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">3. Zero Clasp Setup</span>
+                <span className="text-[10px] text-slate-400">Feature</span>
               </div>
               <p className="text-slate-600 dark:text-slate-400 leading-snug">
-                Visit <a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-0.5">script.google.com/home/usersettings <ExternalLink className="w-2.5 h-2.5" /></a> and turn <b>Apps Script API</b> to <b>ON</b>.
+                No <code className="font-mono">~/.clasprc.json</code> export. No local CLI login. Apps Script self-authenticates via its internal API token on incoming webhook calls!
               </p>
             </div>
           </div>
@@ -216,15 +217,15 @@ export const GitHubCicdModal: React.FC<GitHubCicdModalProps> = ({ isOpen, onClos
             </button>
 
             <button
-              onClick={() => setSelectedTab('clasp')}
+              onClick={() => setSelectedTab('script')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
-                selectedTab === 'clasp'
+                selectedTab === 'script'
                   ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
               <FileCode className="w-3.5 h-3.5 text-amber-500" />
-              <span>.claspignore</span>
+              <span>deploy-webhook.cjs</span>
             </button>
 
             <button
@@ -275,7 +276,7 @@ export const GitHubCicdModal: React.FC<GitHubCicdModalProps> = ({ isOpen, onClos
           <div className="flex items-center gap-2">
             <GitFork className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
-              <b>For other users:</b> When someone forks this repository, they only need to set their own <code className="font-mono text-emerald-600">SCRIPT_ID</code> and <code className="font-mono text-emerald-600">CLASPRC_JSON</code> in secrets to get automatic sync!
+              <b>For other users &amp; forkers:</b> Simply set <code className="font-mono text-emerald-600">WEBAPP_URL</code> and <code className="font-mono text-emerald-600">DEPLOY_KEY</code> in GitHub Secrets to get automated sync!
             </span>
           </div>
 
